@@ -46,7 +46,14 @@ def add_note(note: VoiceNoteIn, session: Session = Depends(get_session)) -> dict
 
 @router.post("/calendar/sync")
 def calendar_sync(session: Session = Depends(get_session)) -> dict[str, Any]:
-    return sync_calendars(session)
+    from ..core.config import settings as _settings
+
+    if not _settings.calendar_ics_urls.strip():
+        return {"ok": False, "error": "CALENDAR_ICS_URLS is not set"}
+    try:
+        return {"ok": True, **sync_calendars(session)}
+    except Exception as exc:  # noqa: BLE001
+        return {"ok": False, "error": f"{type(exc).__name__}: {str(exc)[:200]}"}
 
 
 @router.get("/status")

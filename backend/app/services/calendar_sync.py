@@ -29,7 +29,10 @@ def _as_datetime(value: Any) -> datetime:
 
 def fetch_ics(url: str) -> list[EventIn]:
     resp = httpx.get(url, timeout=30, follow_redirects=True)
-    resp.raise_for_status()
+    if resp.status_code != 200:
+        raise RuntimeError(f"calendar fetch failed: HTTP {resp.status_code} for {url[:60]}... (use the *private* iCal address)")
+    if b"BEGIN:VCALENDAR" not in resp.content[:2000]:
+        raise RuntimeError(f"calendar URL did not return iCal data (got {resp.headers.get('content-type', '?')})")
     cal = Calendar.from_ical(resp.content)
     now = datetime.now(timezone.utc)
     lo, hi = now - timedelta(days=30), now + timedelta(days=7)

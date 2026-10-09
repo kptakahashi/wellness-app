@@ -170,6 +170,28 @@ def post_insights(days: int = 28, session: Session = Depends(get_session)) -> li
     return [r.model_dump() for r in rows]
 
 
+# ------------------------------------------------------------------ jobs (for external cron on free hosting that sleeps)
+@router.post("/jobs/evening")
+def job_evening(session: Session = Depends(get_session)) -> dict[str, Any]:
+    """Sync calendar and prepare today's cards. Hit this from cron-job.org at ~21:00."""
+    from ..core.config import settings as _settings
+
+    cal = None
+    if _settings.calendar_ics_urls:
+        try:
+            cal = sync_calendars(session)
+        except Exception as exc:  # noqa: BLE001
+            cal = {"error": str(exc)[:120]}
+    summary = infer_day(session, now_local().date())
+    return {"ok": True, "calendar": cal, "status": summary.status, "backend": summary.inference_backend}
+
+
+@router.post("/jobs/weekly")
+def job_weekly(session: Session = Depends(get_session)) -> dict[str, Any]:
+    rows = generate_insights(session, end=now_local().date(), days=28)
+    return {"ok": True, "insights": len(rows)}
+
+
 # ------------------------------------------------------------------ settings
 @router.get("/settings/routines")
 def get_routines(session: Session = Depends(get_session)) -> dict[str, Any]:

@@ -10,7 +10,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any
 
-from sqlalchemy import JSON, Column, UniqueConstraint
+from sqlalchemy import JSON, Column, DateTime, UniqueConstraint
 from sqlmodel import Field, SQLModel
 
 
@@ -24,12 +24,12 @@ class RawEvent(SQLModel, table=True):
     # sleep_session | heart_rate | hrv | resting_hr | steps | exercise | spo2 |
     # app_usage | payment | notification | place_visit | calendar_event | voice_note
     kind: str = Field(index=True)
-    start_ts: datetime = Field(index=True)
-    end_ts: datetime | None = None
+    start_ts: datetime = Field(sa_column=Column(DateTime(timezone=True), index=True, nullable=False))
+    end_ts: datetime | None = Field(default=None, sa_column=Column(DateTime(timezone=True), nullable=True))
     payload: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
     device_id: str | None = None
     dedupe_key: str
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), sa_column=Column(DateTime(timezone=True)))
 
 
 class DaySummary(SQLModel, table=True):
@@ -43,8 +43,8 @@ class DaySummary(SQLModel, table=True):
     timeline: list[dict[str, Any]] = Field(default_factory=list, sa_column=Column(JSON))
     summary_text: str = ""
     inference_backend: str = ""
-    generated_at: datetime | None = None
-    reviewed_at: datetime | None = None
+    generated_at: datetime | None = Field(default=None, sa_column=Column(DateTime(timezone=True), nullable=True))
+    reviewed_at: datetime | None = Field(default=None, sa_column=Column(DateTime(timezone=True), nullable=True))
     overall_condition: int | None = None  # 1-5, answered in the evening review
 
 
@@ -63,8 +63,8 @@ class Card(SQLModel, table=True):
     time_label: str | None = None  # "12:30" etc, for display ordering
     answer: str | None = None
     note: str | None = None  # free text correction (optional)
-    answered_at: datetime | None = None
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    answered_at: datetime | None = Field(default=None, sa_column=Column(DateTime(timezone=True), nullable=True))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), sa_column=Column(DateTime(timezone=True)))
 
 
 class Insight(SQLModel, table=True):
@@ -77,7 +77,7 @@ class Insight(SQLModel, table=True):
     evidence: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
     confidence: float = 0.5
     n_samples: int = 0
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), sa_column=Column(DateTime(timezone=True)))
 
 
 class Setting(SQLModel, table=True):

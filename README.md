@@ -62,9 +62,9 @@ uvicorn app.main:app --reload
 
 `http://localhost:8000/?token=<APP_TOKEN>` を開くと今夜の確認カードが出ます。
 
-## 本番(自分用)で動かす
+## 本番(自分用)で動かす。全部無料
 
-1. バックエンドを Fly.io へ: `cd backend && fly launch --copy-config --no-deploy && fly volumes create wellness_data --size 1 --region nrt && fly secrets set APP_TOKEN=... CLAUDE_CODE_OAUTH_TOKEN=... CALENDAR_ICS_URLS=... && fly deploy`
+1. バックエンドを Render(無料枠)+ Neon(無料 Postgres)へ。リポジトリを Render の Blueprint として接続すると `render.yaml` から2サービス(本番・デモ)が立つ。cron-job.org で毎晩 `/api/jobs/evening` を叩いて休眠中のサーバーを起こす。手順は [docs/setup.md](docs/setup.md)
 2. Android アプリをビルド: `cd android && ./gradlew assembleDebug` → `app/build/outputs/apk/debug/app-debug.apk` を端末へ
 3. アプリでサーバー URL とトークンを保存し、4つの権限(Health Connect、使用状況、通知、位置)を一度だけ許可
 4. RingConn アプリ側で Health Connect への書き込みを ON

@@ -10,8 +10,8 @@ import java.util.concurrent.TimeUnit
 
 class ApiClient(private val prefs: Prefs) {
     private val http = OkHttpClient.Builder()
-        .connectTimeout(20, TimeUnit.SECONDS)
-        .readTimeout(60, TimeUnit.SECONDS)
+        .connectTimeout(30, TimeUnit.SECONDS)
+        .readTimeout(120, TimeUnit.SECONDS) // free hosts cold-start in ~60s
         .build()
 
     /** POST /api/ingest. Returns server response JSON or throws. */

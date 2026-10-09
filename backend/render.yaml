@@ -1,0 +1,45 @@
+# Render Blueprint: two free web services. Connect the GitHub repo in Render and pick this file.
+#   wellness-app       : your private instance (set the secret env vars in the dashboard)
+#   wellness-app-demo  : public demo with synthetic data, no database needed
+services:
+  - type: web
+    name: wellness-app
+    runtime: docker
+    plan: free
+    rootDir: backend
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /healthz
+    envVars:
+      - key: TIMEZONE
+        value: Asia/Tokyo
+      - key: INFERENCE_BACKEND
+        value: agent_sdk
+      - key: CLAUDE_MODEL
+        value: claude-opus-5-5
+      - key: EVENING_PREPARE_HOUR
+        value: "21"
+      - key: APP_TOKEN
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: CLAUDE_CODE_OAUTH_TOKEN
+        sync: false
+      - key: CALENDAR_ICS_URLS
+        sync: false
+
+  - type: web
+    name: wellness-app-demo
+    runtime: docker
+    plan: free
+    rootDir: backend
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /healthz
+    envVars:
+      - key: TIMEZONE
+        value: Asia/Tokyo
+      - key: INFERENCE_BACKEND
+        value: rules
+      - key: DEMO_MODE
+        value: "true"
+      - key: APP_TOKEN
+        generateValue: true

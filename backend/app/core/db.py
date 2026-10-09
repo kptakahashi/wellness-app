@@ -7,9 +7,11 @@ from sqlmodel import Session, SQLModel, create_engine
 
 from .config import settings
 
+_url = settings.sqlalchemy_url
 engine = create_engine(
-    f"sqlite:///{settings.db_path}",
-    connect_args={"check_same_thread": False},
+    _url,
+    connect_args={"check_same_thread": False} if _url.startswith("sqlite") else {},
+    pool_pre_ping=not _url.startswith("sqlite"),
 )
 
 

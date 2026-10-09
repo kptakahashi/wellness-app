@@ -51,7 +51,7 @@ class MainActivity : AppCompatActivity() {
             prefs.reminderHour = b.reminderHour.text.toString().toIntOrNull()?.coerceIn(0, 23) ?: 22
             SyncWorker.schedule(this)
             ReviewReminder.schedule(this)
-            toast("保存しました。15分ごとに自動同期します")
+            toast("保存しました。30分ごとに自動同期します")
             refreshStatus()
         }
         b.healthBtn.setOnClickListener {

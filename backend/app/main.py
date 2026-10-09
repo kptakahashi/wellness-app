@@ -50,7 +50,17 @@ def job_calendar() -> None:
 
 
 def job_demo_reseed() -> None:
-    """Demo deployments: keep the synthetic world anchored to 'today'."""
+    """Demo deployments: keep the synthetic world anchored to 'today'.
+
+    Prefers the committed snapshot (real Claude output, replayed with shifted dates);
+    falls back to generating synthetic data with the rules engine.
+    """
+    from .services.snapshot import SNAPSHOT_PATH, load_snapshot
+
+    if SNAPSHOT_PATH.exists():
+        with session_scope() as s:
+            log.info("demo: loaded snapshot %s", load_snapshot(s, today=now_local().date()))
+        return
     import subprocess
     import sys
 

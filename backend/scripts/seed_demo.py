@@ -169,6 +169,7 @@ def main() -> None:
     ap.add_argument("--days", type=int, default=21)
     ap.add_argument("--answer", action="store_true", help="auto-answer cards with the proposed option")
     ap.add_argument("--reset", action="store_true", help="wipe existing data first")
+    ap.add_argument("--export", metavar="PATH", help="after seeding, export everything as a date-shiftable JSON snapshot")
     args = ap.parse_args()
 
     init_db()
@@ -211,6 +212,12 @@ def main() -> None:
             print(f"insights: {len(ins)}")
             for i in ins:
                 print(" -", i.statement)
+
+        if args.export:
+            from app.services.snapshot import export_snapshot
+
+            n = export_snapshot(s, Path(args.export))
+            print(f"exported {n} raw events to {args.export}")
 
 
 if __name__ == "__main__":

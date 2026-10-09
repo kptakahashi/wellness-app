@@ -20,7 +20,8 @@ import java.time.ZoneId
 import java.util.concurrent.TimeUnit
 
 /**
- * Runs every 15 minutes (WorkManager minimum):
+ * Runs every 30 minutes (free hosts sleep after 15 idle minutes; 30 min keeps the server
+ * awake only ~half the time, which keeps a Render free instance well under its 750 h/month):
  *   1. location sample -> queue
  *   2. every ~50 min: Health Connect + usage stats for the last 36 h -> queue (server dedupes)
  *   3. drain queue -> POST /api/ingest
@@ -35,7 +36,7 @@ class SyncWorker(context: Context, params: WorkerParameters) : CoroutineWorker(c
         private const val LOOKBACK_MS = 36L * 60 * 60 * 1000
 
         fun schedule(context: Context) {
-            val req = PeriodicWorkRequestBuilder<SyncWorker>(15, TimeUnit.MINUTES)
+            val req = PeriodicWorkRequestBuilder<SyncWorker>(30, TimeUnit.MINUTES)
                 .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
                 .build()
             WorkManager.getInstance(context).enqueueUniquePeriodicWork(PERIODIC, ExistingPeriodicWorkPolicy.UPDATE, req)

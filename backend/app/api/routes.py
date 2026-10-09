@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import date, datetime, timezone
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from pydantic import BaseModel
 from sqlmodel import Session, select
 
@@ -171,25 +171,43 @@ def post_insights(days: int = 28, session: Session = Depends(get_session)) -> li
 
 
 # ------------------------------------------------------------------ jobs (for external cron on free hosting that sleeps)
-@router.post("/jobs/evening")
-def job_evening(session: Session = Depends(get_session)) -> dict[str, Any]:
-    """Sync calendar and prepare today's cards. Hit this from cron-job.org at ~21:00."""
+def _run_evening_job() -> None:
     from ..core.config import settings as _settings
+    from ..core.db import session_scope
 
-    cal = None
-    if _settings.calendar_ics_urls:
-        try:
-            cal = sync_calendars(session)
-        except Exception as exc:  # noqa: BLE001
-            cal = {"error": str(exc)[:120]}
-    summary = infer_day(session, now_local().date())
-    return {"ok": True, "calendar": cal, "status": summary.status, "backend": summary.inference_backend}
+    with session_scope() as s:
+        if _settings.calendar_ics_urls:
+            try:
+                sync_calendars(s)
+            except Exception:  # noqa: BLE001
+                pass
+        infer_day(s, now_local().date())
 
 
-@router.post("/jobs/weekly")
-def job_weekly(session: Session = Depends(get_session)) -> dict[str, Any]:
-    rows = generate_insights(session, end=now_local().date(), days=28)
-    return {"ok": True, "insights": len(rows)}
+@router.post("/jobs/evening", status_code=202)
+def job_evening(background: BackgroundTasks, force: bool = False, session: Session = Depends(get_session)) -> dict[str, Any]:
+    """Prepare today's cards. Returns immediately (external cron services time out in ~30 s);
+    the work runs in the background. Idempotent: a second call within 2 hours is a no-op."""
+    today = now_local().date().isoformat()
+    existing = session.exec(select(DaySummary).where(DaySummary.date == today)).first()
+    if existing and existing.generated_at and not force:
+        age = datetime.now(timezone.utc) - existing.generated_at.replace(tzinfo=existing.generated_at.tzinfo or timezone.utc)
+        if age.total_seconds() < 2 * 3600:
+            return {"ok": True, "status": "already_prepared", "generated_at": existing.generated_at}
+    background.add_task(_run_evening_job)
+    return {"ok": True, "status": "scheduled"}
+
+
+@router.post("/jobs/weekly", status_code=202)
+def job_weekly(background: BackgroundTasks) -> dict[str, Any]:
+    def run() -> None:
+        from ..core.db import session_scope
+
+        with session_scope() as s:
+            generate_insights(s, end=now_local().date(), days=28)
+
+    background.add_task(run)
+    return {"ok": True, "status": "scheduled"}
 
 
 # ------------------------------------------------------------------ settings

@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.Kizashi" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="colorPrimary">#5eead4</item>
+        <item name="colorPrimaryVariant">#2dd4bf</item>
+        <item name="colorOnPrimary">#06241f</item>
+        <item name="colorSecondary">#a78bfa</item>
+        <item name="android:windowBackground">#0f1115</item>
+        <item name="android:textColor">#e8eaf0</item>
+    </style>
+
+    <style name="SectionTitle">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_marginTop">20dp</item>
+        <item name="android:layout_marginBottom">6dp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:textSize">15sp</item>
+    </style>
+
+    <style name="PermButton" parent="Widget.MaterialComponents.Button.OutlinedButton">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:textAllCaps">false</item>
+        <item name="android:textColor">#e8eaf0</item>
+        <item name="strokeColor">#2a2f3a</item>
+    </style>
+</resources>

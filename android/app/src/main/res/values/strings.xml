@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Kizashi Collector</string>
+    <string name="tagline">記録しない健康ログ。リング・決済・カレンダー・スマホ利用を自動で集めます。</string>
+</resources>

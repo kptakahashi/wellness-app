@@ -1,0 +1,86 @@
+"""Turn collector payloads into RawEvents.
+
+The Android collector posts batches shaped like:
+    {"device_id": "...", "events": [{"source": "...", "kind": "...", "start": ..., "end": ..., "payload": {...}}]}
+Every event gets a dedupe key so re-sending the same window is harmless.
+"""
+
+from __future__ import annotations
+
+import hashlib
+import json
+from datetime import datetime
+from typing import Any
+
+from pydantic import BaseModel, Field
+from sqlalchemy.exc import IntegrityError
+from sqlmodel import Session, select
+
+from ..core.models import RawEvent
+from ..core.timeutil import parse_ts
+
+PAYMENT_HINTS = ("円", "¥", "￥", "ご利用", "お支払い", "支払い", "決済", "利用金額", "paid", "payment")
+
+
+class EventIn(BaseModel):
+    source: str
+    kind: str
+    start: str | int | float | datetime
+    end: str | int | float | datetime | None = None
+    payload: dict[str, Any] = Field(default_factory=dict)
+    dedupe_key: str | None = None
+
+
+class BatchIn(BaseModel):
+    device_id: str | None = None
+    events: list[EventIn]
+
+
+def _dedupe_key(ev: EventIn, start: datetime, end: datetime | None) -> str:
+    if ev.dedupe_key:
+        return f"{ev.source}:{ev.kind}:{ev.dedupe_key}"
+    stable = {k: v for k, v in ev.payload.items() if k not in {"synced_at"}}
+    blob = json.dumps(stable, sort_keys=True, ensure_ascii=False, default=str)
+    h = hashlib.sha1(f"{ev.source}|{ev.kind}|{start.isoformat()}|{end}|{blob}".encode()).hexdigest()[:16]
+    return f"{ev.source}:{ev.kind}:{start.isoformat()}:{h}"
+
+
+def classify_notification(payload: dict[str, Any]) -> str:
+    """A notification becomes a `payment` event when it looks like one."""
+    text = " ".join(str(payload.get(k, "")) for k in ("title", "text", "big_text", "package"))
+    low = text.lower()
+    if any(h.lower() in low for h in PAYMENT_HINTS):
+        return "payment"
+    return "notification"
+
+
+def ingest_batch(session: Session, batch: BatchIn) -> dict[str, int]:
+    inserted = 0
+    skipped = 0
+    for ev in batch.events:
+        start = parse_ts(ev.start)
+        end = parse_ts(ev.end) if ev.end is not None else None
+        kind = ev.kind
+        if ev.source == "notification" and kind == "notification":
+            kind = classify_notification(ev.payload)
+        row = RawEvent(
+            source=ev.source,
+            kind=kind,
+            start_ts=start,
+            end_ts=end,
+            payload=ev.payload,
+            device_id=batch.device_id,
+            dedupe_key=_dedupe_key(ev, start, end),
+        )
+        exists = session.exec(select(RawEvent.id).where(RawEvent.dedupe_key == row.dedupe_key)).first()
+        if exists:
+            skipped += 1
+            continue
+        session.add(row)
+        try:
+            session.commit()
+            inserted += 1
+        except IntegrityError:
+            session.rollback()
+            skipped += 1
+    return {"inserted": inserted, "skipped": skipped}

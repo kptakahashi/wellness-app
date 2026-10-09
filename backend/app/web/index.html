@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Kizashi</title>
+<meta name="theme-color" content="#0f1115">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/static/icon.svg">
+<link rel="apple-touch-icon" href="/static/icon.svg">
+<style>
+:root{
+  --bg:#0f1115; --card:#181b22; --card2:#1f232c; --text:#e8eaf0; --muted:#8b93a7; --line:#2a2f3a;
+  --accent:#5eead4; --accent2:#a78bfa; --yes:#34d399; --no:#f87171; --warn:#fbbf24;
+  --r:16px; --pad:16px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Noto Sans JP","Hiragino Sans",sans-serif;font-size:16px;line-height:1.5}
+body{padding:0 var(--pad) calc(var(--pad)+env(safe-area-inset-bottom))}
+header{display:flex;align-items:center;justify-content:space-between;padding:18px 0 8px}
+h1{font-size:20px;margin:0;letter-spacing:.02em;display:flex;gap:8px;align-items:center}
+h1 .dot{width:10px;height:10px;border-radius:50%;background:var(--accent);box-shadow:0 0 12px var(--accent)}
+.sub{color:var(--muted);font-size:13px}
+nav{display:flex;gap:6px;margin:8px 0 14px}
+nav button{flex:1;background:var(--card);border:1px solid var(--line);color:var(--muted);padding:10px;border-radius:12px;font-size:14px}
+nav button.active{color:var(--text);border-color:var(--accent);background:var(--card2)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:var(--pad);margin-bottom:12px}
+.q{font-size:17px;margin:0 0 6px;font-weight:600}
+.ev{color:var(--muted);font-size:13px;margin:0 0 12px}
+.time{display:inline-block;font-size:12px;color:var(--accent);background:rgba(94,234,212,.08);padding:2px 8px;border-radius:999px;margin-bottom:8px}
+.opts{display:flex;gap:8px;flex-wrap:wrap}
+.opts button{flex:1 1 calc(50% - 4px);min-height:48px;border-radius:12px;border:1px solid var(--line);background:var(--card2);color:var(--text);font-size:16px;font-weight:600}
+.opts button.proposed{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.opts.scale button{flex:1 1 0}
+.opts button:active{transform:scale(.98)}
+.note{width:100%;margin-top:10px;background:var(--bg);border:1px solid var(--line);color:var(--text);border-radius:10px;padding:10px;font-size:15px}
+.done{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--line);color:var(--muted);font-size:14px}
+.done b{color:var(--text)}
+.progress{height:4px;background:var(--line);border-radius:2px;margin:0 0 14px;overflow:hidden}
+.progress i{display:block;height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));transition:width .3s}
+.metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}
+.m{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px}
+.m .v{font-size:20px;font-weight:700}
+.m .l{font-size:11px;color:var(--muted)}
+.tl{list-style:none;margin:0;padding:0}
+.tl li{display:grid;grid-template-columns:52px 1fr;gap:10px;padding:8px 0;border-bottom:1px solid var(--line);font-size:15px}
+.tl .t{color:var(--muted);font-variant-numeric:tabular-nums;font-size:13px;padding-top:2px}
+.tag{font-size:11px;color:var(--muted);margin-left:6px}
+.cat-meal{color:#fbbf24}.cat-exercise{color:#34d399}.cat-sleep{color:#a78bfa}.cat-work{color:#60a5fa}.cat-screen{color:#f87171}.cat-move{color:#38bdf8}
+.primary{width:100%;min-height:52px;border-radius:14px;border:0;background:var(--accent);color:#06241f;font-weight:700;font-size:16px;margin-top:6px}
+.ghost{width:100%;min-height:44px;border-radius:12px;border:1px solid var(--line);background:transparent;color:var(--muted);font-size:14px;margin-top:8px}
+.empty{color:var(--muted);text-align:center;padding:40px 0}
+.insight{border-left:3px solid var(--accent2);padding-left:12px}
+.insight .c{font-size:12px;color:var(--muted)}
+.row{display:flex;gap:8px;align-items:center}
+.row input{flex:1;background:var(--bg);border:1px solid var(--line);color:var(--text);border-radius:10px;padding:10px;font-size:15px}
+.row button{min-width:72px;min-height:44px;border-radius:10px;border:0;background:var(--card2);color:var(--text)}
+pre{white-space:pre-wrap;font-size:12px;color:var(--muted);background:var(--bg);padding:10px;border-radius:10px;border:1px solid var(--line)}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--card2);border:1px solid var(--line);padding:10px 16px;border-radius:999px;font-size:14px;opacity:0;transition:opacity .2s;pointer-events:none}
+.toast.show{opacity:1}
+small.muted{color:var(--muted)}
+</style>
+</head>
+<body>
+<header>
+  <h1><span class="dot"></span>Kizashi</h1>
+  <div class="sub" id="dateLabel"></div>
+</header>
+<nav>
+  <button data-view="review" class="active">今夜の確認</button>
+  <button data-view="day">1日</button>
+  <button data-view="insights">きざし</button>
+  <button data-view="settings">設定</button>
+</nav>
+<main id="app"></main>
+<div class="toast" id="toast"></div>
+<script src="/static/app.js"></script>
+</body>
+</html>

@@ -18,7 +18,7 @@ from .inference.engine import generate_insights, infer_day
 from .services.calendar_sync import sync_calendars
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
-log = logging.getLogger("kizashi")
+log = logging.getLogger("wellness-app")
 
 WEB_DIR = Path(__file__).parent / "web"
 
@@ -76,14 +76,14 @@ async def lifespan(app: FastAPI):
     scheduler.add_job(job_weekly_insights, CronTrigger(day_of_week="sun", hour=20, minute=30))
     scheduler.add_job(job_calendar, "interval", hours=3)
     scheduler.start()
-    log.info("kizashi started (backend=%s, demo=%s)", settings.inference_backend, settings.demo_mode)
+    log.info("wellness-app started (backend=%s, demo=%s)", settings.inference_backend, settings.demo_mode)
     try:
         yield
     finally:
         scheduler.shutdown(wait=False)
 
 
-app = FastAPI(title="Kizashi", version="0.1.0", lifespan=lifespan)
+app = FastAPI(title="Wellness app", version="0.1.0", lifespan=lifespan)
 app.include_router(router)
 app.mount("/static", StaticFiles(directory=WEB_DIR / "static"), name="static")
 

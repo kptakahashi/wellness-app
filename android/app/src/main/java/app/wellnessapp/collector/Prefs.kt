@@ -1,11 +1,11 @@
-package app.kizashi.collector
+package app.wellnessapp.collector
 
 import android.content.Context
 import android.content.SharedPreferences
 
 /** Tiny settings store. Everything the collector needs to know lives here. */
 class Prefs(context: Context) {
-    private val sp: SharedPreferences = context.getSharedPreferences("kizashi", Context.MODE_PRIVATE)
+    private val sp: SharedPreferences = context.getSharedPreferences("wellnessapp", Context.MODE_PRIVATE)
 
     var serverUrl: String
         get() = sp.getString("server_url", "") ?: ""

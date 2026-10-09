@@ -1,6 +1,6 @@
-# Kizashi (きざし)
+# Wellness app
 
-**記録しない健康ログ。** スマートリング・決済通知・カレンダー・スマホ利用を自動で集め、AI が「今日なにをしたか」を推定し、本人は夜に Yes / No を押すだけ。数週間たつと「こういう日は調子がいい」という *きざし* が、事実と数字だけで見えてきます。
+**記録しない健康ログ。** スマートリング・決済通知・カレンダー・スマホ利用を自動で集め、AI が「今日なにをしたか」を推定し、本人は夜に Yes / No を押すだけ。数週間たつと「こういう日は調子がいい」という *傾向* が、事実と数字だけで見えてきます。
 
 > 自分用に毎日使うために作っています(ドッグフーディング)。Singularity Society BootCamp 応募作。
 
@@ -24,7 +24,7 @@
 
 ```
 android/   Kotlin 収集アプリ。Health Connect・使用状況統計・通知リスナー・位置を 15分ごとに同期
-backend/   FastAPI。受信 → 日次タイムライン → Claude で推定カード生成 → 夜の確認 PWA → 週次の「きざし」
+backend/   FastAPI。受信 → 日次タイムライン → Claude で推定カード生成 → 夜の確認 PWA → 週次の「傾向」
 docs/      設計メモ、使用イメージ
 ```
 
@@ -38,7 +38,7 @@ Google カレンダー (秘密の iCal URL) ────────────
                                               夜の PWA で Yes/No ◀──────────────────┘
                                                         │
                                                         ▼
-                                              週次: 事実と相関だけの「きざし」
+                                              週次: 事実と相関だけの「傾向」
 ```
 
 ### 推論バックエンド(差し替え可)
@@ -56,7 +56,7 @@ cd backend
 python -m venv .venv && .venv/Scripts/activate   # mac/linux: source .venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env                               # APP_TOKEN と INFERENCE_BACKEND=rules にする
-python scripts/seed_demo.py --days 21 --answer     # 3週間分の合成データ + 推定 + 回答 + きざし
+python scripts/seed_demo.py --days 21 --answer     # 3週間分の合成データ + 推定 + 回答 + 傾向
 uvicorn app.main:app --reload
 ```
 
@@ -64,7 +64,7 @@ uvicorn app.main:app --reload
 
 ## 本番(自分用)で動かす
 
-1. バックエンドを Fly.io へ: `cd backend && fly launch --copy-config --no-deploy && fly volumes create kizashi_data --size 1 --region nrt && fly secrets set APP_TOKEN=... CLAUDE_CODE_OAUTH_TOKEN=... CALENDAR_ICS_URLS=... && fly deploy`
+1. バックエンドを Fly.io へ: `cd backend && fly launch --copy-config --no-deploy && fly volumes create wellness_data --size 1 --region nrt && fly secrets set APP_TOKEN=... CLAUDE_CODE_OAUTH_TOKEN=... CALENDAR_ICS_URLS=... && fly deploy`
 2. Android アプリをビルド: `cd android && ./gradlew assembleDebug` → `app/build/outputs/apk/debug/app-debug.apk` を端末へ
 3. アプリでサーバー URL とトークンを保存し、4つの権限(Health Connect、使用状況、通知、位置)を一度だけ許可
 4. RingConn アプリ側で Health Connect への書き込みを ON

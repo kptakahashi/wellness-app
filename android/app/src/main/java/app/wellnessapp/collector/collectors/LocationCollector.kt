@@ -1,4 +1,4 @@
-package app.kizashi.collector.collectors
+package app.wellnessapp.collector.collectors
 
 import android.Manifest
 import android.content.Context
@@ -8,7 +8,7 @@ import android.location.Location
 import android.location.LocationManager
 import android.os.Build
 import androidx.core.content.ContextCompat
-import app.kizashi.collector.EventQueue
+import app.wellnessapp.collector.EventQueue
 import org.json.JSONObject
 import java.time.Instant
 import java.util.Locale

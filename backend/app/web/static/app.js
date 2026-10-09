@@ -1,14 +1,14 @@
-/* Kizashi web UI: evening Yes/No review, day timeline, insights. Vanilla JS, no build step. */
+/* Wellness app web UI: evening Yes/No review, day timeline, insights. Vanilla JS, no build step. */
 (() => {
   const $ = (sel) => document.querySelector(sel);
   const app = $("#app");
   const state = {
     view: "review",
-    token: localStorage.getItem("kizashi_token") || new URLSearchParams(location.search).get("token") || "",
+    token: localStorage.getItem("wellness_token") || new URLSearchParams(location.search).get("token") || "",
     date: localDateStr(new Date()),
     day: null,
   };
-  if (state.token) localStorage.setItem("kizashi_token", state.token);
+  if (state.token) localStorage.setItem("wellness_token", state.token);
 
   function localDateStr(d) {
     const p = (n) => String(n).padStart(2, "0");
@@ -171,7 +171,7 @@
     app.innerHTML = `<div class="empty">読み込み中…</div>`;
     const rows = await api("/insights");
     let html = `<p class="sub" style="margin:0 0 12px">事実と相関だけを出します。「どうすればいい?」は、あなたが聞いたときにだけ答えます。</p>`;
-    if (!rows.length) html += `<div class="empty">まだ十分なデータがありません<br><small class="muted">2週間ほど続けると最初のきざしが出ます</small></div>`;
+    if (!rows.length) html += `<div class="empty">まだ十分なデータがありません<br><small class="muted">2週間ほど続けると最初の傾向が出ます</small></div>`;
     html += rows.map((r) => `
       <div class="card insight">
         <p class="q" style="font-size:16px">${esc(r.statement)}</p>
@@ -214,7 +214,7 @@
       $("#rExercise").value = r.exercise || "";
       $("#rBreakfast").value = r.breakfast || "";
     } catch (_) {}
-    $("#saveToken").onclick = () => { state.token = $("#tokenInput").value.trim(); localStorage.setItem("kizashi_token", state.token); toast("保存しました"); renderSettings(); };
+    $("#saveToken").onclick = () => { state.token = $("#tokenInput").value.trim(); localStorage.setItem("wellness_token", state.token); toast("保存しました"); renderSettings(); };
     $("#noteBtn").onclick = async () => { const t = $("#noteText").value.trim(); if (!t) return; await api("/notes", { method: "POST", body: JSON.stringify({ text: t }) }); $("#noteText").value = ""; toast("記録しました"); };
     $("#saveRoutines").onclick = async () => { await api("/settings/routines", { method: "PUT", body: JSON.stringify({ exercise: $("#rExercise").value.trim(), breakfast: $("#rBreakfast").value.trim() }) }); toast("保存しました"); };
     $("#calSync").onclick = async () => { try { const r = await api("/calendar/sync", { method: "POST" }); toast(`取り込み ${r.inserted}件`); } catch (e) { toast("失敗: ICS URL未設定?"); } };

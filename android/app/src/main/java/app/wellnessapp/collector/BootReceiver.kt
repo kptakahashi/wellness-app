@@ -1,4 +1,4 @@
-package app.kizashi.collector
+package app.wellnessapp.collector
 
 import android.content.BroadcastReceiver
 import android.content.Context

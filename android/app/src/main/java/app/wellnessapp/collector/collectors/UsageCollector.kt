@@ -1,4 +1,4 @@
-package app.kizashi.collector.collectors
+package app.wellnessapp.collector.collectors
 
 import android.app.AppOpsManager
 import android.app.usage.UsageEvents
@@ -6,7 +6,7 @@ import android.app.usage.UsageStatsManager
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Process
-import app.kizashi.collector.EventQueue
+import app.wellnessapp.collector.EventQueue
 import org.json.JSONObject
 import java.time.Instant
 

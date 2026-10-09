@@ -1,4 +1,4 @@
-package app.kizashi.collector
+package app.wellnessapp.collector
 
 import android.app.AlarmManager
 import android.app.NotificationChannel
@@ -15,7 +15,7 @@ import java.util.Calendar
 class ReviewReminder : BroadcastReceiver() {
 
     companion object {
-        private const val CHANNEL = "kizashi-review"
+        private const val CHANNEL = "wellness-review"
         private const val REQ = 4101
 
         fun schedule(context: Context) {

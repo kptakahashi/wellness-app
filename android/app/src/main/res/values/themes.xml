@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.Kizashi" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+    <style name="Theme.Wellness app" parent="Theme.MaterialComponents.DayNight.NoActionBar">
         <item name="colorPrimary">#5eead4</item>
         <item name="colorPrimaryVariant">#2dd4bf</item>
         <item name="colorOnPrimary">#06241f</item>

@@ -1,4 +1,4 @@
-package app.kizashi.collector
+package app.wellnessapp.collector
 
 import android.Manifest
 import android.content.Intent
@@ -13,11 +13,11 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.health.connect.client.PermissionController
 import androidx.lifecycle.lifecycleScope
-import app.kizashi.collector.capture.NotificationCapture
-import app.kizashi.collector.collectors.HealthCollector
-import app.kizashi.collector.collectors.LocationCollector
-import app.kizashi.collector.collectors.UsageCollector
-import app.kizashi.collector.databinding.ActivityMainBinding
+import app.wellnessapp.collector.capture.NotificationCapture
+import app.wellnessapp.collector.collectors.HealthCollector
+import app.wellnessapp.collector.collectors.LocationCollector
+import app.wellnessapp.collector.collectors.UsageCollector
+import app.wellnessapp.collector.databinding.ActivityMainBinding
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext

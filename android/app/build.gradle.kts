@@ -4,11 +4,11 @@ plugins {
 }
 
 android {
-    namespace = "app.kizashi.collector"
+    namespace = "app.wellnessapp.collector"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "app.kizashi.collector"
+        applicationId = "app.wellnessapp.collector"
         minSdk = 28
         targetSdk = 35
         versionCode = 1

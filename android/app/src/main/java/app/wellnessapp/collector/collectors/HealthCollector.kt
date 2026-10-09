@@ -1,4 +1,4 @@
-package app.kizashi.collector.collectors
+package app.wellnessapp.collector.collectors
 
 import android.content.Context
 import androidx.health.connect.client.HealthConnectClient
@@ -13,7 +13,7 @@ import androidx.health.connect.client.records.SleepSessionRecord
 import androidx.health.connect.client.records.StepsRecord
 import androidx.health.connect.client.request.ReadRecordsRequest
 import androidx.health.connect.client.time.TimeRangeFilter
-import app.kizashi.collector.EventQueue
+import app.wellnessapp.collector.EventQueue
 import org.json.JSONObject
 import java.time.Instant
 import kotlin.reflect.KClass

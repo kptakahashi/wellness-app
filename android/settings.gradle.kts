@@ -12,5 +12,5 @@ dependencyResolutionManagement {
         mavenCentral()
     }
 }
-rootProject.name = "KizashiCollector"
+rootProject.name = "WellnessAppCollector"
 include(":app")

@@ -1,5 +1,5 @@
 # Public demo with synthetic data: fly deploy -c fly.demo.toml
-app = "kizashi-demo"
+app = "wellness-app-demo"
 primary_region = "nrt"
 
 [build]
@@ -12,7 +12,7 @@ primary_region = "nrt"
   DEMO_MODE = "true"
 
 [[mounts]]
-  source = "kizashi_demo_data"
+  source = "wellness_demo_data"
   destination = "/data"
 
 [http_service]

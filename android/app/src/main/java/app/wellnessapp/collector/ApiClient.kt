@@ -1,4 +1,4 @@
-package app.kizashi.collector
+package app.wellnessapp.collector
 
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient

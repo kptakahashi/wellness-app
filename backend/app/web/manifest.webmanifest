@@ -1,6 +1,6 @@
 {
-  "name": "Kizashi",
-  "short_name": "Kizashi",
+  "name": "Wellness app",
+  "short_name": "Wellness app",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0f1115",

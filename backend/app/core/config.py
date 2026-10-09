@@ -41,7 +41,7 @@ class Settings(BaseSettings):
     @property
     def db_path(self) -> Path:
         self.data_dir.mkdir(parents=True, exist_ok=True)
-        return self.data_dir / "kizashi.db"
+        return self.data_dir / "wellness.db"
 
 
 settings = Settings()

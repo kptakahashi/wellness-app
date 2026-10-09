@@ -1,4 +1,4 @@
-package app.kizashi.collector.capture
+package app.wellnessapp.collector.capture
 
 import android.app.Notification
 import android.content.ComponentName
@@ -6,8 +6,8 @@ import android.content.Context
 import android.provider.Settings
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
-import app.kizashi.collector.EventQueue
-import app.kizashi.collector.Prefs
+import app.wellnessapp.collector.EventQueue
+import app.wellnessapp.collector.Prefs
 import org.json.JSONObject
 import java.time.Instant
 

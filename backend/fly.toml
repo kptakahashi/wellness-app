@@ -1,5 +1,5 @@
-# fly launch --no-deploy --copy-config  then  fly volumes create kizashi_data --size 1  then  fly deploy
-app = "kizashi"
+# fly launch --no-deploy --copy-config  then  fly volumes create wellness_data --size 1  then  fly deploy
+app = "wellness-app"
 primary_region = "nrt"
 
 [build]
@@ -12,7 +12,7 @@ primary_region = "nrt"
   CLAUDE_MODEL = "claude-opus-5-5"
 
 [[mounts]]
-  source = "kizashi_data"
+  source = "wellness_data"
   destination = "/data"
 
 [http_service]

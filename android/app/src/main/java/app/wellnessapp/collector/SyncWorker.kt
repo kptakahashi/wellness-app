@@ -1,4 +1,4 @@
-package app.kizashi.collector
+package app.wellnessapp.collector
 
 import android.content.Context
 import android.util.Log
@@ -11,9 +11,9 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
-import app.kizashi.collector.collectors.HealthCollector
-import app.kizashi.collector.collectors.LocationCollector
-import app.kizashi.collector.collectors.UsageCollector
+import app.wellnessapp.collector.collectors.HealthCollector
+import app.wellnessapp.collector.collectors.LocationCollector
+import app.wellnessapp.collector.collectors.UsageCollector
 import java.time.Instant
 import java.time.format.DateTimeFormatter
 import java.time.ZoneId
@@ -28,9 +28,9 @@ import java.util.concurrent.TimeUnit
 class SyncWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
 
     companion object {
-        private const val TAG = "KizashiSync"
-        private const val PERIODIC = "kizashi-sync"
-        private const val ONESHOT = "kizashi-sync-now"
+        private const val TAG = "WellnessSync"
+        private const val PERIODIC = "wellness-sync"
+        private const val ONESHOT = "wellness-sync-now"
         private const val HEALTH_INTERVAL_MS = 50L * 60 * 1000
         private const val LOOKBACK_MS = 36L * 60 * 60 * 1000
 

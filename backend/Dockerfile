@@ -1,4 +1,4 @@
-# Kizashi backend. Python + (optionally) the Claude Code CLI so the Agent SDK backend works.
+# Wellness app backend. Python + (optionally) the Claude Code CLI so the Agent SDK backend works.
 FROM python:3.12-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1

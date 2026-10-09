@@ -13,7 +13,7 @@
 ```bash
 cd backend
 fly launch --copy-config --no-deploy          # アプリ名を聞かれたら好きな名前に
-fly volumes create kizashi_data --size 1 --region nrt
+fly volumes create wellness_data --size 1 --region nrt
 fly secrets set APP_TOKEN="$(openssl rand -hex 24)" \
   CLAUDE_CODE_OAUTH_TOKEN="<claude setup-token の値>" \
   CALENDAR_ICS_URLS="https://calendar.google.com/calendar/ical/.../basic.ics"
@@ -37,13 +37,13 @@ cd android
 
 1. サーバー URL(`https://<app>.fly.dev`)と APP_TOKEN を入れて「保存して自動同期を開始」
 2. 「Health Connect を許可」→ 全項目 ON
-3. 「使用状況へのアクセスを許可」→ 設定画面で Kizashi Collector を ON
-4. 「通知の読み取りを許可」→ 設定画面で Kizashi Collector を ON
+3. 「使用状況へのアクセスを許可」→ 設定画面で Wellness app Collector を ON
+4. 「通知の読み取りを許可」→ 設定画面で Wellness app Collector を ON
 5. 「位置情報と通知を許可」→ 許可。続けて「常に許可」にする
 6. 「今すぐ同期」→ ログに「健康 N件 / 利用統計 N件 / 送信 N件」と出れば OK
 7. 「サーバー接続テスト」→ event_counts に数字が入っていれば届いている
 
-電池の最適化で止められる機種(Xiaomi、OPPO など)は、設定 → アプリ → Kizashi Collector → バッテリー → 制限なし。
+電池の最適化で止められる機種(Xiaomi、OPPO など)は、設定 → アプリ → Wellness app Collector → バッテリー → 制限なし。
 
 ## 3. 夜の確認
 

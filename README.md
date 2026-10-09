@@ -62,6 +62,8 @@ uvicorn app.main:app --reload
 
 `http://localhost:8000/?token=<APP_TOKEN>` を開くと今夜の確認カードが出ます。
 
+`DEMO_MODE=true` で起動すると `backend/demo/snapshot.json`(合成データに対して Claude が実際に生成した3週間分のカードと傾向)を日付をずらして再生します。公開デモはこの方式で、AI 費用ゼロで Claude 品質の出力を見せます。
+
 ## 本番(自分用)で動かす。全部無料
 
 1. バックエンドを Render(無料枠)+ Neon(無料 Postgres)へ。リポジトリを Render の Blueprint として接続すると `render.yaml` から2サービス(本番・デモ)が立つ。cron-job.org で毎晩 `/api/jobs/evening` を叩いて休眠中のサーバーを起こす。手順は [docs/setup.md](docs/setup.md)

@@ -54,10 +54,12 @@ object EventQueue {
         arr
     }
 
-    fun commit(context: Context, sent: Int) = synchronized(lock) {
-        val f = File(context.filesDir, FILE)
-        if (!f.exists()) return
-        val remaining = f.readLines().filter { it.isNotBlank() }.drop(sent)
-        if (remaining.isEmpty()) f.delete() else f.writeText(remaining.joinToString("\n", postfix = "\n"))
+    fun commit(context: Context, sent: Int) {
+        synchronized(lock) {
+            val f = File(context.filesDir, FILE)
+            if (!f.exists()) return
+            val remaining = f.readLines().filter { it.isNotBlank() }.drop(sent)
+            if (remaining.isEmpty()) f.delete() else f.writeText(remaining.joinToString("\n", postfix = "\n"))
+        }
     }
 }

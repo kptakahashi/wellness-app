@@ -49,10 +49,29 @@ def job_calendar() -> None:
             log.exception("calendar sync failed")
 
 
+def job_demo_reseed() -> None:
+    """Demo deployments: keep the synthetic world anchored to 'today'."""
+    import subprocess
+    import sys
+
+    subprocess.run([sys.executable, str(Path(__file__).parents[1] / "scripts" / "seed_demo.py"), "--days", "21", "--answer", "--reset"], check=False)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
+    if settings.demo_mode:
+        from sqlmodel import select
+
+        from .core.models import RawEvent
+
+        with session_scope() as s:
+            if s.exec(select(RawEvent.id).limit(1)).first() is None:
+                log.info("demo mode: seeding synthetic data")
+                job_demo_reseed()
     scheduler = BackgroundScheduler(timezone=TZ)
+    if settings.demo_mode:
+        scheduler.add_job(job_demo_reseed, CronTrigger(hour=3, minute=0))
     scheduler.add_job(job_prepare_evening, CronTrigger(hour=settings.evening_prepare_hour, minute=0))
     scheduler.add_job(job_weekly_insights, CronTrigger(day_of_week="sun", hour=20, minute=30))
     scheduler.add_job(job_calendar, "interval", hours=3)

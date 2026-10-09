@@ -230,7 +230,7 @@ def infer_insights(rows: list[dict[str, Any]], answers: list[dict[str, Any]]) ->
             if mb and abs(ma - mb) / abs(mb) >= 0.08:
                 diff = (ma - mb) / mb * 100
                 out.append(
-                    {"statement": f"{name_true}の日は、それ以外の日より{metric_label}が平均{abs(diff):.0f}%{'高い' if diff > 0 else '低い'}。",
+                    {"statement": f"{name_true}日は、それ以外の日より{metric_label}が平均{abs(diff):.0f}%{'高い' if diff > 0 else '低い'}。",
                      "evidence": f"{name_true}: {len(a)}日 平均{ma:.1f}{unit} / それ以外: {len(b)}日 平均{mb:.1f}{unit}",
                      "confidence": min(0.9, 0.4 + 0.05 * min(len(a), len(b))), "n_samples": len(a) + len(b)}
                 )
@@ -239,7 +239,7 @@ def infer_insights(rows: list[dict[str, Any]], answers: list[dict[str, Any]]) ->
     compare("運動した", lambda r: (r.get("exercise_minutes") or 0) >= 20, "next_sleep_hours", "翌日の睡眠時間", "h")
     compare("深夜にスマホを60分以上使った", lambda r: (r.get("late_night_screen_minutes") or 0) >= 60, "next_sleep_hours", "翌日の睡眠時間", "h")
     compare("深夜にスマホを60分以上使った", lambda r: (r.get("late_night_screen_minutes") or 0) >= 60, "next_condition", "翌日の調子", "")
-    compare("会議が4件以上", lambda r: (r.get("meeting_count") or 0) >= 4, "condition", "その日の調子", "")
-    compare("睡眠7時間以上", lambda r: (r.get("sleep_hours") or 0) >= 7, "condition", "調子", "")
-    compare("睡眠7時間以上", lambda r: (r.get("sleep_hours") or 0) >= 7, "hrv_avg", "HRV", "ms")
+    compare("会議が4件以上の", lambda r: (r.get("meeting_count") or 0) >= 4, "condition", "その日の調子", "")
+    compare("睡眠7時間以上の", lambda r: (r.get("sleep_hours") or 0) >= 7, "condition", "調子", "")
+    compare("睡眠7時間以上の", lambda r: (r.get("sleep_hours") or 0) >= 7, "hrv_avg", "HRV", "ms")
     return {"insights": out[:6]}

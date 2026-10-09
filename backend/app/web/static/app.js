@@ -31,8 +31,7 @@
       headers: { "Content-Type": "application/json", "X-Api-Token": state.token, ...(opts.headers || {}) },
     });
     if (res.status === 401) {
-      state.view = "settings";
-      render();
+      if (state.view !== "settings") { state.view = "settings"; render(); }
       throw new Error("token");
     }
     if (!res.ok) throw new Error(await res.text());

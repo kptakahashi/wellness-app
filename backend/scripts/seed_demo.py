@@ -22,7 +22,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from app.core.db import init_db, session_scope  # noqa: E402
 from app.core.models import Card, DaySummary, Insight, RawEvent, Setting  # noqa: E402
-from app.core.timeutil import TZ  # noqa: E402
+from app.core.timeutil import TZ, now_local  # noqa: E402
 from app.inference.engine import generate_insights, infer_day  # noqa: E402
 from app.services.ingest import BatchIn, EventIn, ingest_batch  # noqa: E402
 
@@ -182,7 +182,7 @@ def main() -> None:
         s.merge(Setting(key="routines", value={"exercise": "月水金 18:30 ジムで筋トレ50分", "breakfast": "コンビニのおにぎりとコーヒー"}))
         s.commit()
 
-        today = date.today()
+        today = now_local().date()  # local calendar day, not the server's UTC day
         start = today - timedelta(days=args.days - 1)
         late, gym = 0, False
         for i in range(args.days):

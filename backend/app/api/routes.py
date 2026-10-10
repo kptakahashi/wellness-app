@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from typing import Any
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
@@ -65,6 +65,20 @@ def status(session: Session = Depends(get_session)) -> dict[str, Any]:
     last = session.exec(select(RawEvent.created_at).order_by(RawEvent.created_at.desc()).limit(1)).first()
     pending = len(session.exec(select(Card.id).where(Card.date == today, Card.answer.is_(None))).all())
     return {"today": today, "event_counts": counts, "last_ingest_utc": last, "pending_cards_today": pending}
+
+
+@router.get("/events")
+def list_events(day: str, kind: str | None = None, limit: int = 200, session: Session = Depends(get_session)) -> list[dict[str, Any]]:
+    """Raw events for one local day (debugging what a device actually wrote)."""
+    from ..core.timeutil import day_bounds
+
+    d = _day_or_400(day)
+    start, end = day_bounds(d)
+    stmt = select(RawEvent).where(RawEvent.start_ts >= start - timedelta(hours=12), RawEvent.start_ts < end).order_by(RawEvent.start_ts)
+    if kind:
+        stmt = stmt.where(RawEvent.kind == kind)
+    rows = session.exec(stmt.limit(limit)).all()
+    return [{"id": r.id, "source": r.source, "kind": r.kind, "start": r.start_ts, "end": r.end_ts, "payload": r.payload} for r in rows]
 
 
 # ------------------------------------------------------------------ days

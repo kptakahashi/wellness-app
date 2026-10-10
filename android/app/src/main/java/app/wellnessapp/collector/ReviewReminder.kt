@@ -44,7 +44,7 @@ class ReviewReminder : BroadcastReceiver() {
             val n = NotificationCompat.Builder(context, CHANNEL)
                 .setSmallIcon(android.R.drawable.ic_menu_agenda)
                 .setContentTitle("今日の確認、2分で終わります")
-                .setContentText("推定した1日を Yes/No で確認するだけ")
+                .setContentText("推定した1日を選択肢で確認するだけ")
                 .setContentIntent(open)
                 .setAutoCancel(true)
                 .build()

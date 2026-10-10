@@ -63,6 +63,14 @@ class MainActivity : AppCompatActivity() {
         }
         b.usageBtn.setOnClickListener { startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)) }
         b.notifBtn.setOnClickListener { startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }
+        b.appInfoBtn.setOnClickListener {
+            startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName")))
+        }
+        b.resetPackagesBtn.setOnClickListener {
+            b.packages.setText(Prefs.DEFAULT_PACKAGES)
+            prefs.notificationPackages = Prefs.DEFAULT_PACKAGES
+            toast("既定のリストに戻しました")
+        }
         b.locationBtn.setOnClickListener {
             val perms = mutableListOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)
             if (Build.VERSION.SDK_INT >= 33) perms += Manifest.permission.POST_NOTIFICATIONS

@@ -36,6 +36,7 @@
 
         <TextView style="@style/SectionTitle" android:text="1. サーバー" />
 
+        <TextView style="@style/FieldLabel" android:text="サーバー URL" />
         <EditText
             android:id="@+id/serverUrl"
             android:layout_width="match_parent"
@@ -43,6 +44,7 @@
             android:hint="https://xxxx.fly.dev"
             android:inputType="textUri" />
 
+        <TextView style="@style/FieldLabel" android:text="APP_TOKEN (サーバーと同じ合言葉)" />
         <EditText
             android:id="@+id/token"
             android:layout_width="match_parent"
@@ -50,6 +52,7 @@
             android:hint="APP_TOKEN"
             android:inputType="textPassword" />
 
+        <TextView style="@style/FieldLabel" android:text="夜の確認リマインドの時刻 (0〜23)" />
         <EditText
             android:id="@+id/reminderHour"
             android:layout_width="match_parent"
@@ -68,6 +71,13 @@
         <Button android:id="@+id/healthBtn" style="@style/PermButton" android:text="Health Connect を許可 (睡眠・心拍・HRV・歩数・運動)" />
         <Button android:id="@+id/usageBtn" style="@style/PermButton" android:text="使用状況へのアクセスを許可 (アプリ利用時間)" />
         <Button android:id="@+id/notifBtn" style="@style/PermButton" android:text="通知の読み取りを許可 (決済通知)" />
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Pixel など Android 13 以降で「制限付き設定」と出る場合: 下のボタンでアプリ情報を開き、右上の ⋮ → 「制限付き設定を許可」をしてから、もう一度上のボタンを押してください。"
+            android:textColor="#8b93a7"
+            android:textSize="12sp" />
+        <Button android:id="@+id/appInfoBtn" style="@style/PermButton" android:text="アプリ情報を開く (制限付き設定の解除)" />
         <Button android:id="@+id/locationBtn" style="@style/PermButton" android:text="位置情報と通知を許可" />
         <Button android:id="@+id/backgroundLocationBtn" style="@style/PermButton" android:text="位置情報を「常に許可」にする" />
 
@@ -83,9 +93,10 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="リストにないアプリでも「円」「ご利用」「お支払い」などを含む通知は拾います。"
+            android:text="リストにないアプリでも「円」「ご利用」「お支払い」などを含む通知は拾います。空のまま保存すると既定のリストに戻ります。"
             android:textColor="#8b93a7"
             android:textSize="12sp" />
+        <Button android:id="@+id/resetPackagesBtn" style="@style/PermButton" android:text="既定のリストに戻す" />
 
         <TextView style="@style/SectionTitle" android:text="4. 動作確認" />
 

@@ -36,8 +36,8 @@ class Prefs(context: Context) {
 
     /** Comma separated package names whose notifications are always captured. */
     var notificationPackages: String
-        get() = sp.getString("notification_packages", DEFAULT_PACKAGES) ?: DEFAULT_PACKAGES
-        set(v) = sp.edit().putString("notification_packages", v).apply()
+        get() = (sp.getString("notification_packages", DEFAULT_PACKAGES) ?: DEFAULT_PACKAGES).ifBlank { DEFAULT_PACKAGES }
+        set(v) = sp.edit().putString("notification_packages", v.ifBlank { DEFAULT_PACKAGES }).apply()
 
     var reminderHour: Int
         get() = sp.getInt("reminder_hour", 22)

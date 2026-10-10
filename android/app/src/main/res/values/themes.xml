@@ -7,6 +7,25 @@
         <item name="colorSecondary">#a78bfa</item>
         <item name="android:windowBackground">#0f1115</item>
         <item name="android:textColor">#e8eaf0</item>
+        <item name="android:textColorHint">#6b7280</item>
+        <item name="android:editTextColor">#ffffff</item>
+        <item name="editTextStyle">@style/WellnessEditText</item>
+    </style>
+
+    <style name="WellnessEditText" parent="Widget.AppCompat.EditText">
+        <item name="android:textColor">#ffffff</item>
+        <item name="android:textColorHint">#6b7280</item>
+        <item name="android:backgroundTint">#5eead4</item>
+        <item name="android:paddingTop">12dp</item>
+        <item name="android:paddingBottom">12dp</item>
+    </style>
+
+    <style name="FieldLabel">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_marginTop">10dp</item>
+        <item name="android:textColor">#8b93a7</item>
+        <item name="android:textSize">12sp</item>
     </style>
 
     <style name="SectionTitle">

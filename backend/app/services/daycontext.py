@@ -15,9 +15,22 @@ from typing import Any
 from sqlmodel import Session, select
 
 from ..core.models import Card, RawEvent, Setting
-from ..core.timeutil import day_bounds, fmt_hm, to_utc_naive
+from ..core.timeutil import day_bounds, fmt_hm, local_day_of, to_utc_naive
 
 NOISE_PACKAGES = {"com.android.systemui", "com.google.android.apps.nexuslauncher", "android"}
+KNOWN_APPS = {
+    "com.twitter.android": "X", "com.google.android.youtube": "YouTube", "jp.naver.line.android": "LINE",
+    "com.instagram.android": "Instagram", "com.zhiliaoapp.musically": "TikTok", "com.android.chrome": "Chrome",
+    "com.Slack": "Slack", "com.google.android.gm": "Gmail", "com.facebook.katana": "Facebook",
+    "com.google.android.apps.maps": "Google マップ", "jp.ne.paypay.android.app": "PayPay",
+    "com.moneyforward.android.app": "マネーフォワード", "com.netflix.mediaclient": "Netflix",
+    "com.amazon.mShop.android.shopping": "Amazon", "com.spotify.music": "Spotify",
+    "com.google.android.apps.photos": "Google フォト", "com.reddit.frontpage": "Reddit", "com.discord": "Discord",
+    "com.google.android.apps.docs": "Google ドライブ", "com.microsoft.teams": "Teams",
+    "com.google.android.calendar": "Google カレンダー", "jp.co.yahoo.android.yjtop": "Yahoo!",
+    "com.gdjztech.ringconn": "RingConn", "com.anthropic.claude": "Claude", "com.openai.chatgpt": "ChatGPT",
+    "jp.mercari": "メルカリ", "com.google.android.apps.messaging": "メッセージ",
+}
 
 
 @dataclass
@@ -107,6 +120,68 @@ def get_routines(session: Session) -> dict[str, Any]:
     return row.value if row else {}
 
 
+def summarize_sleep(rows: list[RawEvent], day: date) -> dict[str, Any] | None:
+    """Merge a device's sleep records into one night.
+
+    RingConn (and some other apps) write one record for the whole night *and* one record per
+    5-minute stage segment, so naive "longest record" reporting loses the stages. We cluster
+    records into nights (gap <= 60 min), drop records that merely contain others, and sum the
+    leaf segments by stage. Sleep span = first to last non-awake leaf.
+    """
+    if not rows:
+        return None
+    rows = sorted(rows, key=lambda r: r.start_ts)
+    nights: list[list[RawEvent]] = []
+    for r in rows:
+        if nights and (r.start_ts - max(x.end_ts or x.start_ts for x in nights[-1])).total_seconds() <= 3600:
+            nights[-1].append(r)
+        else:
+            nights.append([r])
+
+    def dur(r: RawEvent) -> float:
+        return ((r.end_ts or r.start_ts) - r.start_ts).total_seconds()
+
+    def stage_of(r: RawEvent) -> str:
+        vals = {k: float(r.payload.get(k) or 0) for k in ("deep_min", "rem_min", "light_min", "awake_min")}
+        return max(vals, key=vals.get) if any(vals.values()) else "light_min"
+
+    best: dict[str, Any] | None = None
+    for night in nights:
+        leaves = [
+            r for r in night
+            if not any(
+                o is not r and o.start_ts >= r.start_ts and (o.end_ts or o.start_ts) <= (r.end_ts or r.start_ts) and dur(o) < dur(r)
+                for o in night
+            )
+        ]
+        asleep = [r for r in leaves if stage_of(r) != "awake_min"]
+        if not asleep:
+            continue
+        start = min(r.start_ts for r in asleep)
+        end = max((r.end_ts or r.start_ts) for r in asleep)
+        totals = {k: 0.0 for k in ("deep_min", "rem_min", "light_min", "awake_min")}
+        for r in leaves:
+            if r.start_ts < start or (r.end_ts or r.start_ts) > end:
+                continue  # in-bed awake before/after the sleep itself
+            totals[stage_of(r)] += dur(r) / 60
+        hours = (end - start).total_seconds() / 3600 - totals["awake_min"] / 60
+        cand = {
+            "start": fmt_hm(start),
+            "end": fmt_hm(end),
+            "hours": round(hours, 2),
+            "deep_min": round(totals["deep_min"]),
+            "rem_min": round(totals["rem_min"]),
+            "light_min": round(totals["light_min"]),
+            "awake_min": round(totals["awake_min"]),
+        }
+        score = (local_day_of(end) == day, hours)  # prefer the night that ends on this day, then the longest
+        if best is None or score > best["_score"]:
+            best = {**cand, "_score": score}
+    if best:
+        best.pop("_score", None)
+    return best
+
+
 def _dist_m(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     from math import cos, radians, sqrt
 
@@ -156,22 +231,12 @@ def build_day_context(session: Session, day: date) -> DayContext:
     resting: list[int] = []
     usage: dict[str, dict[str, Any]] = defaultdict(lambda: {"minutes": 0.0, "hours": defaultdict(float)})
     loc_samples: list[tuple[datetime, float, float, str]] = []
+    sleep_rows: list[RawEvent] = []
 
     for e in events:
         p = e.payload
         if e.kind == "sleep_session":
-            hours = ((e.end_ts or e.start_ts) - e.start_ts).total_seconds() / 3600
-            cand = {
-                "start": fmt_hm(e.start_ts),
-                "end": fmt_hm(e.end_ts),
-                "hours": round(hours, 2),
-                "deep_min": p.get("deep_min"),
-                "rem_min": p.get("rem_min"),
-                "light_min": p.get("light_min"),
-                "awake_min": p.get("awake_min"),
-            }
-            if ctx.sleep is None or hours > ctx.sleep["hours"]:
-                ctx.sleep = cand
+            sleep_rows.append(e)
         elif e.kind == "heart_rate":
             bpm = int(p.get("bpm", 0))
             if bpm:
@@ -235,12 +300,15 @@ def build_day_context(session: Session, day: date) -> DayContext:
             if pkg in NOISE_PACKAGES:
                 continue
             label = p.get("app_label") or pkg
+            if label == pkg or label.startswith(("com.", "jp.", "org.")):
+                label = KNOWN_APPS.get(pkg, pkg.rsplit(".", 1)[-1].capitalize())
             minutes = ((e.end_ts or e.start_ts) - e.start_ts).total_seconds() / 60
             usage[label]["minutes"] += minutes
             usage[label]["hours"][fmt_hm(e.start_ts)[:2]] += minutes
         elif e.kind == "voice_note":
             ctx.notes.append({"time": fmt_hm(e.start_ts), "text": p.get("text", "")})
 
+    ctx.sleep = summarize_sleep(sleep_rows, day)
     ctx.places.extend(_cluster_visits(loc_samples))
     ctx.places.sort(key=lambda x: x["start"])
     ctx.hr_series = [(k, round(mean(v))) for k, v in sorted(hr_buckets.items())]

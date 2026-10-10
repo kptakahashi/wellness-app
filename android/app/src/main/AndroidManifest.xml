@@ -21,6 +21,8 @@
     <uses-permission android:name="android.permission.health.READ_OXYGEN_SATURATION" />
     <uses-permission android:name="android.permission.health.READ_HEALTH_DATA_IN_BACKGROUND" />
 
+    <!-- Resolve human-readable app names from usage stats on Android 11+ (sideloaded, not on Play) -->
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" tools:ignore="QueryAllPackagesPermission" />
     <queries>
         <package android:name="com.google.android.apps.healthdata" />
     </queries>

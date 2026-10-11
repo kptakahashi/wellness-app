@@ -26,3 +26,6 @@ android/.idea/
 # OS
 .DS_Store
 Thumbs.db
+
+# Application documents, never public
+apply/

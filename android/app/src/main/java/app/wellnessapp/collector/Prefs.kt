@@ -50,10 +50,13 @@ class Prefs(context: Context) {
     val isConfigured: Boolean get() = serverUrl.startsWith("http") && token.isNotBlank()
 
     companion object {
+        /** Payment apps (always captured) plus delivery / store apps whose notifications carry what was bought. */
         const val DEFAULT_PACKAGES =
             "jp.ne.paypay.android.app,com.moneyforward.android.app,jp.co.rakuten_card.rakutencard," +
                 "com.smbc_card.vpass,jp.co.jcb.myjcb,jp.mobilesuica,jp.co.aeoncredit.aeonwallet," +
-                "com.kddi.android.aupay,jp.mufg.bk.applisp.app,com.nttdocomo.keitai.payment,jp.co.rakuten.pay,com.google.android.apps.walletnfcrel"
-        val PAYMENT_KEYWORDS = listOf("円", "¥", "￥", "ご利用", "お支払い", "支払い", "決済", "利用金額", "paid", "payment")
+                "com.kddi.android.aupay,jp.mufg.bk.applisp.app,com.nttdocomo.keitai.payment,jp.co.rakuten.pay,com.google.android.apps.walletnfcrel," +
+                "com.ubercab.eats,com.demaecan.androidapp,com.amazon.mShop.android.shopping,com.starbucks.jp," +
+                "jp.co.sej.app,jp.co.family.familymart_app,jp.co.lawson.android"
+        val PAYMENT_KEYWORDS = listOf("円", "¥", "￥", "ご利用", "お支払い", "支払い", "決済", "利用金額", "ご注文", "レシート", "お買い上げ", "paid", "payment")
     }
 }

@@ -4,7 +4,7 @@ from datetime import date, datetime, timedelta, timezone
 from typing import Any
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlmodel import Session, select
 
 from ..core.auth import require_token
@@ -12,6 +12,8 @@ from ..core.db import get_session
 from ..core.models import Card, DaySummary, Insight, RawEvent, Setting
 from ..core.timeutil import now_local
 from ..inference.engine import generate_insights, infer_day
+from ..services import places as places_svc
+from ..services import poi as poi_svc
 from ..services.calendar_sync import sync_calendars
 from ..services.daycontext import build_day_context
 from ..services.ingest import BatchIn, ingest_batch
@@ -156,24 +158,34 @@ def complete_review(day: str, session: Session = Depends(get_session)) -> dict[s
 
 # ------------------------------------------------------------------ cards
 class AnswerIn(BaseModel):
-    answer: str
-    note: str | None = None
+    answer: str = Field(min_length=1, max_length=300)
+    note: str | None = Field(default=None, max_length=500)
 
 
 @router.post("/cards/{card_id}/answer")
 def answer_card(card_id: int, body: AnswerIn, session: Session = Depends(get_session)) -> dict[str, Any]:
+    """Answer is either one of the options or free text typed by the user (the web UI has a send button)."""
     card = session.get(Card, card_id)
     if not card:
         raise HTTPException(404, "card not found")
-    card.answer = body.answer
-    card.note = body.note
+    answer = body.answer.strip()
+    if not answer:
+        raise HTTPException(400, "answer is empty")
+    card.answer = answer
+    card.note = (body.note or "").strip() or None
     card.answered_at = datetime.now(timezone.utc)
     session.add(card)
-    if card.kind == "mood" and body.answer.isdigit():
+    if card.kind == "mood" and answer.isdigit():
         summary = session.exec(select(DaySummary).where(DaySummary.date == card.date)).first()
         if summary:
-            summary.overall_condition = int(body.answer)
+            summary.overall_condition = max(1, min(5, int(answer)))
             session.add(summary)
+    if card.kind == "place":
+        # Remember the label so this place is never asked about again. "その他" with a note -> the note.
+        spot = (card.evidence or {}).get("place") or {}
+        label = card.note if answer == "その他" and card.note else answer
+        if "lat" in spot and "lon" in spot:
+            places_svc.upsert_place(session, float(spot["lat"]), float(spot["lon"]), label, source="user")
     session.commit()
     return {"ok": True}
 
@@ -229,6 +241,41 @@ def job_weekly(background: BackgroundTasks) -> dict[str, Any]:
 
     background.add_task(run)
     return {"ok": True, "status": "scheduled"}
+
+
+# ------------------------------------------------------------------ places
+@router.get("/settings/places")
+def get_places(session: Session = Depends(get_session)) -> dict[str, Any]:
+    return {
+        "items": places_svc.load_places(session),
+        "poi_tiles": poi_svc.tiles_status(session),
+        "poi_source": "osm" if poi_svc.enabled() else "none",
+    }
+
+
+class PlaceIn(BaseModel):
+    lat: float
+    lon: float
+    label: str = Field(min_length=1, max_length=40)
+    radius_m: int = Field(default=places_svc.DEFAULT_RADIUS_M, ge=30, le=1000)
+
+
+@router.put("/settings/places")
+def put_place(body: PlaceIn, session: Session = Depends(get_session)) -> dict[str, Any]:
+    return {"items": places_svc.upsert_place(session, body.lat, body.lon, body.label, source="user", radius_m=body.radius_m)}
+
+
+@router.delete("/settings/places")
+def delete_place(lat: float, lon: float, session: Session = Depends(get_session)) -> dict[str, Any]:
+    items = [p for p in places_svc.load_places(session) if places_svc.dist_m(lat, lon, float(p["lat"]), float(p["lon"])) > 30]
+    places_svc.save_places(session, items)
+    return {"items": items}
+
+
+@router.post("/settings/places/detect")
+def detect_places(session: Session = Depends(get_session)) -> dict[str, Any]:
+    """Re-run home/work detection from the last two weeks of location samples."""
+    return {"detected": places_svc.auto_detect(session), "items": places_svc.load_places(session)}
 
 
 # ------------------------------------------------------------------ settings

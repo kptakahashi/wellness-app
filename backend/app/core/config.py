@@ -42,6 +42,13 @@ class Settings(BaseSettings):
     # Demo mode serves synthetic data and never calls an LLM unless configured.
     demo_mode: bool = False
 
+    # Naming the shop/facility behind a stay. "osm": download named places for ~5 km tiles from
+    # OpenStreetMap (free, no key, no coordinates of individual visits leave the server) and match
+    # locally. "none": addresses only.
+    poi_source: str = "osm"
+    poi_tile_deg: float = 0.02  # ~2 km square; dense city tiles stay small enough for the public API
+    overpass_urls: str = "https://overpass-api.de/api/interpreter,https://overpass.kumi.systems/api/interpreter"
+
     @property
     def db_path(self) -> Path:
         self.data_dir.mkdir(parents=True, exist_ok=True)

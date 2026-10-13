@@ -29,3 +29,7 @@ Thumbs.db
 
 # Application documents, never public
 apply/
+
+# Never commit account recovery codes
+github-recovery-codes.txt
+*recovery-codes*

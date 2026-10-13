@@ -16,6 +16,8 @@ from sqlmodel import Session, select
 
 from ..core.models import Card, RawEvent, Setting
 from ..core.timeutil import day_bounds, fmt_hm, local_day_of, to_utc_naive
+from . import poi
+from .places import dist_m, label_for, load_places
 
 NOISE_PACKAGES = {"com.android.systemui", "com.google.android.apps.nexuslauncher", "android"}
 KNOWN_APPS = {
@@ -89,9 +91,9 @@ class DayContext:
             for p in self.payments:
                 lines.append(f"  - {p['time']} [{p.get('app', '')}] {p.get('title', '')} {p.get('text', '')}".rstrip())
         if self.places:
-            lines.append("滞在場所:")
+            lines.append("滞在場所(ラベルは確認済み。候補は近くの店・施設と距離):")
             for pl in self.places:
-                lines.append(f"  - {pl['start']}〜{pl['end']} {pl.get('name') or pl.get('latlon')} ({pl.get('minutes')}分)")
+                lines.append(f"  - {pl['start']}〜{pl['end']} {describe_place(pl)} ({pl.get('minutes')}分)")
         if self.app_usage:
             lines.append("スマホ利用(上位):")
             for a in self.app_usage:
@@ -182,20 +184,43 @@ def summarize_sleep(rows: list[RawEvent], day: date) -> dict[str, Any] | None:
     return best
 
 
-def _dist_m(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
-    from math import cos, radians, sqrt
+def describe_place(pl: dict[str, Any]) -> str:
+    """One readable phrase for a stay: label, else POI candidates + address, else address/coords."""
+    if pl.get("label"):
+        return f"{pl['label']}"
+    parts: list[str] = []
+    pois = pl.get("pois") or []
+    if pois:
+        cands = []
+        for p in pois:
+            tag = "決済と一致" if p.get("matched") else f"{p['category']}, {p['distance_m']}m"
+            cands.append(f"{p['name']}({tag})")
+        parts.append("候補: " + " / ".join(cands))
+    if pl.get("name"):
+        parts.append(f"住所: {pl['name']}")
+    if not parts:
+        parts.append(pl.get("latlon") or "不明")
+    if pl.get("accuracy_m") and pl["accuracy_m"] > 100:
+        parts.append(f"精度±{pl['accuracy_m']}m")
+    return " ".join(parts)
 
-    dx = (lon2 - lon1) * 111_320 * cos(radians((lat1 + lat2) / 2))
-    dy = (lat2 - lat1) * 110_540
-    return sqrt(dx * dx + dy * dy)
+
+Sample = tuple[datetime, float, float, str, int]  # ts, lat, lon, address, accuracy_m
 
 
-def _cluster_visits(samples: list[tuple[datetime, float, float, str]], radius_m: float = 150, min_minutes: int = 10) -> list[dict[str, Any]]:
-    """Consecutive samples within radius_m become one visit. Phone samples every ~15 min."""
-    out: list[dict[str, Any]] = []
-    cur: list[tuple[datetime, float, float, str]] = []
-    for smp in sorted(samples):
-        if cur and _dist_m(cur[0][1], cur[0][2], smp[1], smp[2]) > radius_m:
+def _cluster_visits(samples: list[Sample], radius_m: float = 150, min_minutes: int = 10, gap_minutes: int = 90) -> list[dict[str, Any]]:
+    """Consecutive samples within radius_m become one visit.
+
+    The phone samples every ~15 min while awake; in Doze (at night) WorkManager may stretch that
+    to an hour or more, hence the generous gap before a stay is split in two.
+    """
+    out: list[list[Sample]] = []
+    cur: list[Sample] = []
+    for smp in sorted(samples, key=lambda x: x[0]):
+        if cur and (
+            dist_m(cur[0][1], cur[0][2], smp[1], smp[2]) > radius_m
+            or (smp[0] - cur[-1][0]).total_seconds() > gap_minutes * 60
+        ):
             out.append(cur)
             cur = []
         cur.append(smp)
@@ -207,16 +232,58 @@ def _cluster_visits(samples: list[tuple[datetime, float, float, str]], radius_m:
         if minutes < min_minutes:
             continue
         names = [g[3] for g in grp if g[3]]
+        accs = sorted(g[4] for g in grp if g[4] > 0)
+        lat = sum(g[1] for g in grp) / len(grp)
+        lon = sum(g[2] for g in grp) / len(grp)
         visits.append(
             {
                 "start": fmt_hm(grp[0][0]),
                 "end": fmt_hm(grp[-1][0]),
                 "name": max(set(names), key=names.count) if names else None,
-                "latlon": f"{grp[0][1]:.4f},{grp[0][2]:.4f}",
+                "latlon": f"{lat:.4f},{lon:.4f}",
+                "lat": round(lat, 5),
+                "lon": round(lon, 5),
+                "accuracy_m": accs[len(accs) // 2] if accs else 0,
                 "minutes": round(minutes),
             }
         )
     return visits
+
+
+def _hm_minutes(hm: str) -> int:
+    try:
+        h, m = hm.split(":")
+        return int(h) * 60 + int(m)
+    except (ValueError, AttributeError):
+        return -1
+
+
+def annotate_places(session: Session, visits: list[dict[str, Any]], payments: list[dict[str, Any]]) -> None:
+    """Attach remembered labels and OSM candidates to location-derived visits (cached tiles only)."""
+    places = load_places(session)
+    for v in visits:
+        if v.get("lat") is None:
+            continue
+        v["label"] = label_for(places, v["lat"], v["lon"])
+        if v["label"]:
+            continue
+        acc = int(v.get("accuracy_m") or 0)
+        radius = min(150.0, max(80.0, 40.0 + acc / 2))
+        cands = poi.nearby(session, v["lat"], v["lon"], radius_m=radius, limit=3)
+        if not cands:
+            continue
+        # A payment during the stay whose store name agrees with a candidate settles it.
+        lo, hi = _hm_minutes(v["start"]) - 20, _hm_minutes(v["end"]) + 20
+        for p in payments:
+            if p.get("kind") != "payment" or not (lo <= _hm_minutes(p["time"]) <= hi):
+                continue
+            hit = poi.match_store(cands, f"{p.get('title', '')} {p.get('text', '')}")
+            if hit:
+                hit["matched"] = True
+                cands.remove(hit)
+                cands.insert(0, hit)
+                break
+        v["pois"] = cands
 
 
 def build_day_context(session: Session, day: date) -> DayContext:
@@ -230,7 +297,7 @@ def build_day_context(session: Session, day: date) -> DayContext:
     spo2: list[float] = []
     resting: list[int] = []
     usage: dict[str, dict[str, Any]] = defaultdict(lambda: {"minutes": 0.0, "hours": defaultdict(float)})
-    loc_samples: list[tuple[datetime, float, float, str]] = []
+    loc_samples: list[Sample] = []
     sleep_rows: list[RawEvent] = []
 
     for e in events:
@@ -294,7 +361,12 @@ def build_day_context(session: Session, day: date) -> DayContext:
                 }
             )
         elif e.kind == "location_sample":
-            loc_samples.append((e.start_ts, float(p.get("lat", 0)), float(p.get("lon", 0)), str(p.get("address") or "")))
+            try:
+                lat, lon = float(p.get("lat", 0)), float(p.get("lon", 0))
+            except (TypeError, ValueError):
+                continue
+            if lat or lon:
+                loc_samples.append((e.start_ts, lat, lon, str(p.get("address") or ""), int(p.get("accuracy_m") or 0)))
         elif e.kind == "app_usage":
             pkg = p.get("package", "")
             if pkg in NOISE_PACKAGES:
@@ -309,7 +381,10 @@ def build_day_context(session: Session, day: date) -> DayContext:
             ctx.notes.append({"time": fmt_hm(e.start_ts), "text": p.get("text", "")})
 
     ctx.sleep = summarize_sleep(sleep_rows, day)
-    ctx.places.extend(_cluster_visits(loc_samples))
+    visits = _cluster_visits(loc_samples)
+    ctx.payments.sort(key=lambda x: x["time"])
+    annotate_places(session, visits, ctx.payments)
+    ctx.places.extend(visits)
     ctx.places.sort(key=lambda x: x["start"])
     ctx.hr_series = [(k, round(mean(v))) for k, v in sorted(hr_buckets.items())]
     ctx.hrv_series = [(k, mean(v)) for k, v in sorted(hrv_buckets.items())]

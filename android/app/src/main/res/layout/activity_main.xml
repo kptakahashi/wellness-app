@@ -80,6 +80,12 @@
         <Button android:id="@+id/appInfoBtn" style="@style/PermButton" android:text="アプリ情報を開く (制限付き設定の解除)" />
         <Button android:id="@+id/locationBtn" style="@style/PermButton" android:text="位置情報と通知を許可" />
         <Button android:id="@+id/backgroundLocationBtn" style="@style/PermButton" android:text="位置情報を「常に許可」にする" />
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="位置は15分ごとに端末内で記録し、サーバー側で「自宅」「職場」を自動判定します。滞在した店・施設名は OpenStreetMap の約5km四方の地図データを使ってサーバー内で照合します(個々の座標は外部に送りません)。"
+            android:textColor="#8b93a7"
+            android:textSize="12sp" />
 
         <TextView style="@style/SectionTitle" android:text="3. 通知を拾うアプリ (パッケージ名, カンマ区切り)" />
 
@@ -93,7 +99,7 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="リストにないアプリでも「円」「ご利用」「お支払い」などを含む通知は拾います。空のまま保存すると既定のリストに戻ります。"
+            android:text="リストのアプリの通知は常に拾います(クーポン等は除外)。リストにないアプリでも「円」「お支払い」「ご注文」「レシート」などを含む通知は拾います。LINE やメッセージなどの会話アプリは対象外です。空のまま保存すると既定のリストに戻ります。"
             android:textColor="#8b93a7"
             android:textSize="12sp" />
         <Button android:id="@+id/resetPackagesBtn" style="@style/PermButton" android:text="既定のリストに戻す" />

@@ -80,6 +80,16 @@ class Insight(SQLModel, table=True):
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), sa_column=Column(DateTime(timezone=True)))
 
 
+class PoiTile(SQLModel, table=True):
+    """Cached OpenStreetMap places for one ~5 km tile (see services/poi.py)."""
+
+    __tablename__ = "poi_tiles"
+
+    key: str = Field(primary_key=True)  # "south,west" of the tile in degrees
+    pois: list[dict[str, Any]] = Field(default_factory=list, sa_column=Column(JSON))
+    fetched_at: datetime | None = Field(default=None, sa_column=Column(DateTime(timezone=True), nullable=True))
+
+
 class Setting(SQLModel, table=True):
     __tablename__ = "settings"
 

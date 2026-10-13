@@ -56,6 +56,7 @@ class SyncWorker(context: Context, params: WorkerParameters) : CoroutineWorker(c
                 runCatching { if (LocationCollector(context).sample()) sb.append("位置 1件 / ") }
                     .onFailure { Log.w(TAG, "location failed", it) }
             }
+            LocationWorker.schedule(context) // idempotent: make sure the 15-min sampler is alive
 
             if (force || now - prefs.lastHealthSync > HEALTH_INTERVAL_MS) {
                 val start = Instant.ofEpochMilli(now - LOOKBACK_MS)

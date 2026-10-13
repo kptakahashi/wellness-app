@@ -50,6 +50,7 @@ class MainActivity : AppCompatActivity() {
             prefs.notificationPackages = b.packages.text.toString()
             prefs.reminderHour = b.reminderHour.text.toString().toIntOrNull()?.coerceIn(0, 23) ?: 22
             SyncWorker.schedule(this)
+            LocationWorker.schedule(this)
             ReviewReminder.schedule(this)
             toast("保存しました。30分ごとに自動同期します")
             refreshStatus()
@@ -103,6 +104,7 @@ class MainActivity : AppCompatActivity() {
 
         if (prefs.isConfigured) {
             SyncWorker.schedule(this)
+            LocationWorker.schedule(this)
             ReviewReminder.schedule(this)
         }
     }

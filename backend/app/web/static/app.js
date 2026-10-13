@@ -89,7 +89,11 @@
           <div class="opts ${scale ? "scale" : ""}">
             ${c.options.map((o) => `<button data-opt="${esc(o)}" class="${o === c.proposed ? "proposed" : ""}">${esc(o)}</button>`).join("")}
           </div>
-          <input class="note" id="noteInput" placeholder="ひとこと訂正(任意)。例: ビールは1杯">
+          <div class="row free">
+            <input class="note" id="noteInput" placeholder="選択肢にない答えは自由に入力して送信" enterkeyhint="send" maxlength="300">
+            <button id="noteSend" class="send">送信</button>
+          </div>
+          <p class="ev" style="margin:6px 0 0">選択肢を押すと、入力した文は補足メモとして一緒に保存されます。</p>
         </div>
         <p class="sub" style="text-align:center">残り ${pending.length} 枚</p>`;
     } else {
@@ -108,16 +112,24 @@
     html += `<button class="ghost" id="prevBtn">前の日(${shiftDate(state.date, -1)})</button>`;
     app.innerHTML = html;
 
+    const submitAnswer = async (id, answer, note) => {
+      try {
+        await api(`/cards/${id}/answer`, { method: "POST", body: JSON.stringify({ answer, note }) });
+      } catch (e) { toast("保存失敗"); return; }
+      renderReview();
+    };
     app.querySelectorAll(".opts button").forEach((b) => {
-      b.onclick = async () => {
-        const id = b.closest(".card").dataset.id;
-        const note = $("#noteInput")?.value?.trim() || null;
-        try {
-          await api(`/cards/${id}/answer`, { method: "POST", body: JSON.stringify({ answer: b.dataset.opt, note }) });
-        } catch (e) { toast("保存失敗"); return; }
-        renderReview();
-      };
+      b.onclick = () => submitAnswer(b.closest(".card").dataset.id, b.dataset.opt, $("#noteInput")?.value?.trim() || null);
     });
+    // Free text: the typed sentence becomes the answer itself (e.g. "カレーうどん", "行っていない").
+    const sendFree = () => {
+      const input = $("#noteInput");
+      const text = input?.value?.trim();
+      if (!text) { toast("入力してから送信してください"); input?.focus(); return; }
+      submitAnswer(input.closest(".card").dataset.id, text, null);
+    };
+    $("#noteSend") && ($("#noteSend").onclick = sendFree);
+    $("#noteInput") && ($("#noteInput").onkeydown = (ev) => { if (ev.key === "Enter") { ev.preventDefault(); sendFree(); } });
     $("#completeBtn") && ($("#completeBtn").onclick = async () => { await api(`/days/${state.date}/complete`, { method: "POST" }); toast("保存しました"); renderReview(); });
     $("#reinferBtn") && ($("#reinferBtn").onclick = async () => { await api(`/days/${state.date}/infer?force=true`, { method: "POST" }); renderReview(); });
     $("#prevBtn").onclick = () => { state.date = shiftDate(state.date, -1); renderReview(); };
@@ -208,12 +220,33 @@
       <div class="card">
         <p class="q">カレンダー</p>
         <button class="ghost" id="calSync">いま同期する</button>
+      </div>
+      <div class="card">
+        <p class="q">覚えている場所</p>
+        <p class="ev">自宅は深夜の位置から自動で決まります。それ以外は一度だけカードで聞き、答えを覚えます。</p>
+        <div id="placesList" class="ev">読み込み中…</div>
+        <button class="ghost" id="detectPlaces">自宅・職場をいま推定し直す</button>
       </div>`;
     try {
       const r = await api("/settings/routines");
       $("#rExercise").value = r.exercise || "";
       $("#rBreakfast").value = r.breakfast || "";
     } catch (_) {}
+    const renderPlaces = async () => {
+      try {
+        const r = await api("/settings/places");
+        const items = r.items || [];
+        $("#placesList").innerHTML = items.length
+          ? items.map((p) => `<div class="done"><span>${esc(p.label)} <small class="muted">${p.source === "auto" ? "自動" : "回答"} · ${Number(p.lat).toFixed(3)},${Number(p.lon).toFixed(3)}</small></span><button class="mini" data-lat="${p.lat}" data-lon="${p.lon}">忘れる</button></div>`).join("")
+            + `<p class="ev" style="margin:8px 0 0">店名の照合: ${r.poi_source === "osm" ? `OpenStreetMap (タイル ${r.poi_tiles.length} 枚)` : "オフ"}</p>`
+          : "まだありません(位置情報が数日分たまると自宅が決まります)";
+        $("#placesList").querySelectorAll("button.mini").forEach((b) => {
+          b.onclick = async () => { await api(`/settings/places?lat=${b.dataset.lat}&lon=${b.dataset.lon}`, { method: "DELETE" }); renderPlaces(); };
+        });
+      } catch (_) { $("#placesList").textContent = "取得できません"; }
+    };
+    renderPlaces();
+    $("#detectPlaces").onclick = async () => { $("#detectPlaces").textContent = "推定中…"; try { await api("/settings/places/detect", { method: "POST" }); } catch (_) {} $("#detectPlaces").textContent = "自宅・職場をいま推定し直す"; renderPlaces(); };
     $("#saveToken").onclick = () => { state.token = $("#tokenInput").value.trim(); localStorage.setItem("wellness_token", state.token); toast("保存しました"); renderSettings(); };
     $("#noteBtn").onclick = async () => { const t = $("#noteText").value.trim(); if (!t) return; await api("/notes", { method: "POST", body: JSON.stringify({ text: t }) }); $("#noteText").value = ""; toast("記録しました"); };
     $("#saveRoutines").onclick = async () => { await api("/settings/routines", { method: "PUT", body: JSON.stringify({ exercise: $("#rExercise").value.trim(), breakfast: $("#rBreakfast").value.trim() }) }); toast("保存しました"); };

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from datetime import date, datetime, timedelta, timezone
 from typing import Any
 
@@ -11,6 +12,7 @@ from sqlmodel import Session, select
 
 from ..core.config import settings
 from ..core.models import Card, DaySummary, Insight
+from ..services import places, poi
 from ..services.daycontext import build_day_context, previous_answers
 from . import prompts, rules
 from .claude_client import InferenceError, complete_json
@@ -19,11 +21,46 @@ from .schema import DAY_INFERENCE_SCHEMA, INSIGHT_SCHEMA
 log = logging.getLogger(__name__)
 
 
+# Questions the user never wants again: the identity of a place, and whether they slept.
+PLACE_IDENTITY_RE = re.compile(r"(自宅|お家|ご自宅|家|職場|会社|オフィス)\s*(です|でした|だった|にい|に居|ですよね|でしょう)")
+SLEEP_RE = re.compile(r"(寝て|眠って|就寝|睡眠|寝た|眠った|起きた|起床)")
+
+
+def _drop_unwanted(cards: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    out: list[dict[str, Any]] = []
+    for c in cards:
+        q = str(c.get("question", ""))
+        if c.get("kind") == "sleep" or SLEEP_RE.search(q):
+            continue  # sleep comes from Health Connect, never from a question
+        if PLACE_IDENTITY_RE.search(q):
+            continue  # place labels are handled by the one-time place card
+        out.append(c)
+    return out
+
+
+def prepare_places(session: Session, day: date) -> None:
+    """Learn home/work from the last two weeks and cache OSM tiles for the places visited that day."""
+    try:
+        places.auto_detect(session)
+    except Exception:  # noqa: BLE001
+        log.exception("place auto-detect failed")
+    if not poi.enabled():
+        return
+    try:
+        ctx = build_day_context(session, day)
+        pts = [(v["lat"], v["lon"]) for v in ctx.places if v.get("lat") is not None and not v.get("label")]
+        if pts:
+            poi.ensure_tiles(session, pts)
+    except Exception:  # noqa: BLE001
+        log.exception("poi tile fetch failed")
+
+
 def infer_day(session: Session, day: date, force: bool = False) -> DaySummary:
     existing = session.exec(select(DaySummary).where(DaySummary.date == day.isoformat())).first()
     if existing and existing.status == "reviewed" and not force:
         return existing
 
+    prepare_places(session, day)
     ctx = build_day_context(session, day)
     history = previous_answers(session, day)
     backend_used = "rules"
@@ -40,6 +77,13 @@ def infer_day(session: Session, day: date, force: bool = False) -> DaySummary:
         if settings.inference_backend != "rules":
             log.warning("falling back to rules: %s", exc)
         data = rules.infer_day(ctx, history)
+
+    cards_out = _drop_unwanted(list(data.get("cards", [])))
+    try:
+        cards_out = places.place_cards(session, ctx.places, places.load_places(session)) + cards_out
+    except Exception:  # noqa: BLE001
+        log.exception("place cards failed")
+    data["cards"] = cards_out
 
     summary = existing or DaySummary(date=day.isoformat())
     summary.metrics = ctx.metrics
@@ -67,6 +111,9 @@ def infer_day(session: Session, day: date, force: bool = False) -> DaySummary:
         proposed = str(c.get("proposed") or options[0])
         if proposed not in options:
             options.append(proposed)
+        evidence: dict[str, Any] = {"text": c.get("evidence", "")}
+        if c.get("place"):
+            evidence["place"] = c["place"]
         session.add(
             Card(
                 date=day.isoformat(),
@@ -74,7 +121,7 @@ def infer_day(session: Session, day: date, force: bool = False) -> DaySummary:
                 question=c["question"],
                 options=options,
                 proposed=proposed,
-                evidence={"text": c.get("evidence", "")},
+                evidence=evidence,
                 confidence=float(c.get("confidence", 0.5)),
                 time_label=c.get("time") or None,
             )

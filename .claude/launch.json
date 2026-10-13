@@ -6,6 +6,12 @@
       "runtimeExecutable": "C:/Wellness app/backend/.venv/Scripts/python.exe",
       "runtimeArgs": ["-m", "uvicorn", "app.main:app", "--host", "127.0.0.1", "--port", "8000", "--app-dir", "C:/Wellness app/backend"],
       "port": 8000
+    },
+    {
+      "name": "backend-smoke",
+      "runtimeExecutable": "C:/Wellness app/backend/.venv/Scripts/python.exe",
+      "runtimeArgs": ["-m", "uvicorn", "app.main:app", "--host", "127.0.0.1", "--port", "8010", "--app-dir", "C:/Wellness app/backend", "--env-file", "C:/Users/FM95/AppData/Local/Temp/claude/C--Wellness-app/7d679842-95ab-4165-9b59-0a0b0f4fff38/scratchpad/smoke.env"],
+      "port": 8010
     }
   ]
 }

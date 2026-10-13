@@ -40,6 +40,10 @@ nav button.active{color:var(--text);border-color:var(--accent);background:var(--
 .mini{min-height:32px;padding:0 10px;border-radius:8px;border:1px solid var(--line);background:transparent;color:var(--muted);font-size:12px}
 .done{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--line);color:var(--muted);font-size:14px}
 .done b{color:var(--text)}
+button.done{width:100%;background:transparent;border:0;border-bottom:1px solid var(--line);text-align:left;font:inherit;cursor:pointer}
+button.done span{flex:1;padding-right:8px}
+button.done:disabled{opacity:.5}
+.card.editing{border-color:var(--accent2)}
 .progress{height:4px;background:var(--line);border-radius:2px;margin:0 0 14px;overflow:hidden}
 .progress i{display:block;height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));transition:width .3s}
 .metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}

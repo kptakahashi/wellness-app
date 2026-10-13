@@ -7,6 +7,7 @@
     token: localStorage.getItem("wellness_token") || new URLSearchParams(location.search).get("token") || "",
     date: localDateStr(new Date()),
     day: null,
+    editingId: null, // an already-answered card being changed
   };
   if (state.token) localStorage.setItem("wellness_token", state.token);
 
@@ -78,24 +79,35 @@
     let html = `<div class="progress"><i style="width:${pct}%"></i></div>`;
     if (d.summary) html += `<p class="sub" style="margin:0 0 12px">${esc(d.summary)}</p>`;
 
-    if (pending.length) {
-      const c = pending[0];
+    // One card is "open": an answered card being edited, else the first unanswered one.
+    const editing = state.editingId != null ? cards.find((c) => c.id === state.editingId) : null;
+    const open = editing || pending[0] || null;
+    const cardHtml = (c, isEdit) => {
       const scale = c.kind === "mood";
-      html += `
-        <div class="card" data-id="${c.id}">
+      // When the current answer is free text, show it in the input so it can be corrected.
+      const freeText = isEdit && c.answer && !c.options.includes(c.answer) ? c.answer : "";
+      const mark = (o) => (isEdit ? o === c.answer : o === c.proposed) ? "proposed" : "";
+      return `
+        <div class="card ${isEdit ? "editing" : ""}" data-id="${c.id}">
+          ${isEdit ? `<p class="sub" style="margin:0 0 6px">回答を変更 <small class="muted">(いまの答え: ${esc(c.answer)}${c.note ? " / " + esc(c.note) : ""})</small></p>` : ""}
           ${c.time_label ? `<span class="time">${esc(c.time_label)}</span>` : ""}
           <p class="q">${esc(c.question)}</p>
           <p class="ev">${esc(c.evidence?.text || "")} <small class="muted">(確信度 ${Math.round((c.confidence || 0) * 100)}%)</small></p>
           <div class="opts ${scale ? "scale" : ""}">
-            ${c.options.map((o) => `<button data-opt="${esc(o)}" class="${o === c.proposed ? "proposed" : ""}">${esc(o)}</button>`).join("")}
+            ${c.options.map((o) => `<button data-opt="${esc(o)}" class="${mark(o)}">${esc(o)}</button>`).join("")}
           </div>
           <div class="row free">
-            <input class="note" id="noteInput" placeholder="選択肢にない答えは自由に入力して送信" enterkeyhint="send" maxlength="300">
+            <input class="note" id="noteInput" placeholder="選択肢にない答えは自由に入力して送信" enterkeyhint="send" maxlength="300" value="${esc(freeText)}">
             <button id="noteSend" class="send">送信</button>
           </div>
           <p class="ev" style="margin:6px 0 0">選択肢を押すと、入力した文は補足メモとして一緒に保存されます。</p>
-        </div>
-        <p class="sub" style="text-align:center">残り ${pending.length} 枚</p>`;
+          ${isEdit ? `<button class="ghost" id="cancelEdit">変更をやめる</button>` : ""}
+        </div>`;
+    };
+
+    if (open) {
+      html += cardHtml(open, !!editing);
+      if (!editing) html += `<p class="sub" style="text-align:center">残り ${pending.length} 枚</p>`;
     } else {
       html += `
         <div class="card">
@@ -106,8 +118,8 @@
         </div>`;
     }
     if (done.length) {
-      html += `<div class="card"><p class="sub" style="margin:0 0 6px">回答済み</p>` +
-        done.map((c) => `<div class="done"><span>${esc(c.question)}</span><b>${esc(c.answer)}</b></div>`).join("") + `</div>`;
+      html += `<div class="card"><p class="sub" style="margin:0 0 6px">回答済み <small class="muted">(タップで変更)</small></p>` +
+        done.map((c) => `<button class="done edit" data-edit="${c.id}" ${c.id === state.editingId ? "disabled" : ""}><span>${esc(c.question)}</span><b>${esc(c.answer)}</b></button>`).join("") + `</div>`;
     }
     html += `<button class="ghost" id="prevBtn">前の日(${shiftDate(state.date, -1)})</button>`;
     app.innerHTML = html;
@@ -116,8 +128,13 @@
       try {
         await api(`/cards/${id}/answer`, { method: "POST", body: JSON.stringify({ answer, note }) });
       } catch (e) { toast("保存失敗"); return; }
+      if (state.editingId != null) { state.editingId = null; toast("回答を変更しました"); }
       renderReview();
     };
+    app.querySelectorAll("button.edit").forEach((b) => {
+      b.onclick = () => { state.editingId = Number(b.dataset.edit); renderReview(); window.scrollTo({ top: 0, behavior: "smooth" }); };
+    });
+    $("#cancelEdit") && ($("#cancelEdit").onclick = () => { state.editingId = null; renderReview(); });
     app.querySelectorAll(".opts button").forEach((b) => {
       b.onclick = () => submitAnswer(b.closest(".card").dataset.id, b.dataset.opt, $("#noteInput")?.value?.trim() || null);
     });
@@ -132,7 +149,7 @@
     $("#noteInput") && ($("#noteInput").onkeydown = (ev) => { if (ev.key === "Enter") { ev.preventDefault(); sendFree(); } });
     $("#completeBtn") && ($("#completeBtn").onclick = async () => { await api(`/days/${state.date}/complete`, { method: "POST" }); toast("保存しました"); renderReview(); });
     $("#reinferBtn") && ($("#reinferBtn").onclick = async () => { await api(`/days/${state.date}/infer?force=true`, { method: "POST" }); renderReview(); });
-    $("#prevBtn").onclick = () => { state.date = shiftDate(state.date, -1); renderReview(); };
+    $("#prevBtn").onclick = () => { state.date = shiftDate(state.date, -1); state.editingId = null; renderReview(); };
   }
 
   function summarizeMetrics(m = {}) {
@@ -259,6 +276,6 @@
       if (e.message !== "token") app.innerHTML = `<div class="empty">エラー<br><small class="muted">${esc(e.message)}</small></div>`;
     });
   }
-  document.querySelectorAll("nav button").forEach((b) => (b.onclick = () => { state.view = b.dataset.view; render(); }));
+  document.querySelectorAll("nav button").forEach((b) => (b.onclick = () => { state.view = b.dataset.view; state.editingId = null; render(); }));
   render();
 })();

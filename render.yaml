@@ -18,6 +18,8 @@ services:
         value: claude-opus-5-5
       - key: EVENING_PREPARE_HOUR
         value: "21"
+      - key: RAW_EVENT_RETENTION_DAYS
+        value: "90"
       - key: APP_TOKEN
         sync: false
       - key: DATABASE_URL

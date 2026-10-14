@@ -14,14 +14,42 @@ from typing import Any
 from ..services.daycontext import DayContext
 
 FOOD_WORDS = {
-    "ラーメン": "ラーメン", "らーめん": "ラーメン", "蕎麦": "そば", "そば": "そば", "うどん": "うどん",
-    "カレー": "カレー", "寿司": "寿司", "すし": "寿司", "焼肉": "焼肉", "居酒屋": "居酒屋(お酒あり)",
-    "スターバックス": "コーヒー", "スタバ": "コーヒー", "ドトール": "コーヒー", "タリーズ": "コーヒー",
-    "セブン": "コンビニ(軽食)", "ファミリーマート": "コンビニ(軽食)", "ファミマ": "コンビニ(軽食)",
-    "ローソン": "コンビニ(軽食)", "マクドナルド": "ハンバーガー", "マック": "ハンバーガー", "モス": "ハンバーガー",
-    "吉野家": "牛丼", "松屋": "牛丼・定食", "すき家": "牛丼", "サイゼ": "イタリアン", "ガスト": "ファミレス",
-    "大戸屋": "定食", "やよい軒": "定食", "丸亀": "うどん", "日高屋": "ラーメン・中華", "餃子の王将": "中華",
-    "Uber Eats": "デリバリー", "出前館": "デリバリー", "酒": "お酒", "ビール": "ビール", "ワイン": "ワイン",
+    "ラーメン": "ラーメン",
+    "らーめん": "ラーメン",
+    "蕎麦": "そば",
+    "そば": "そば",
+    "うどん": "うどん",
+    "カレー": "カレー",
+    "寿司": "寿司",
+    "すし": "寿司",
+    "焼肉": "焼肉",
+    "居酒屋": "居酒屋(お酒あり)",
+    "スターバックス": "コーヒー",
+    "スタバ": "コーヒー",
+    "ドトール": "コーヒー",
+    "タリーズ": "コーヒー",
+    "セブン": "コンビニ(軽食)",
+    "ファミリーマート": "コンビニ(軽食)",
+    "ファミマ": "コンビニ(軽食)",
+    "ローソン": "コンビニ(軽食)",
+    "マクドナルド": "ハンバーガー",
+    "マック": "ハンバーガー",
+    "モス": "ハンバーガー",
+    "吉野家": "牛丼",
+    "松屋": "牛丼・定食",
+    "すき家": "牛丼",
+    "サイゼ": "イタリアン",
+    "ガスト": "ファミレス",
+    "大戸屋": "定食",
+    "やよい軒": "定食",
+    "丸亀": "うどん",
+    "日高屋": "ラーメン・中華",
+    "餃子の王将": "中華",
+    "Uber Eats": "デリバリー",
+    "出前館": "デリバリー",
+    "酒": "お酒",
+    "ビール": "ビール",
+    "ワイン": "ワイン",
 }
 GYM_WORDS = ("ジム", "gym", "fitness", "フィットネス", "エニタイム", "ゴールドジム", "筋トレ", "ラン", "ヨガ", "プール")
 MEAL_WINDOWS = [("朝食", 5, 10), ("昼食", 11, 14), ("夕食", 17, 22)]
@@ -43,7 +71,8 @@ def _yen(text: str) -> int | None:
     return int(raw) if raw.isdigit() else None
 
 
-GENERIC_TITLES = ("新着の入出金", "お支払い", "ご利用", "決済", "通知", "支払い完了")
+# Titles that are never the shop: generic wording, or the payment app's own name.
+GENERIC_TITLES = ("新着の入出金", "お支払い", "ご利用", "決済", "通知", "支払い完了", "PayPay", "楽天ペイ", "d払い", "マネーフォワード")
 
 
 def _store_name(p: dict[str, Any]) -> str:
@@ -71,8 +100,14 @@ def infer_day(ctx: DayContext, history: list[dict[str, Any]]) -> dict[str, Any]:
 
     if ctx.sleep:
         timeline.append(
-            {"time": ctx.sleep["start"], "end": ctx.sleep["end"], "label": f"睡眠 {ctx.sleep['hours']:.1f}h",
-             "category": "sleep", "confidence": 0.95, "source": "ring"}
+            {
+                "time": ctx.sleep["start"],
+                "end": ctx.sleep["end"],
+                "label": f"睡眠 {ctx.sleep['hours']:.1f}h",
+                "category": "sleep",
+                "confidence": 0.95,
+                "source": "ring",
+            }
         )
 
     # --- meals from payments ---
@@ -91,8 +126,13 @@ def infer_day(ctx: DayContext, history: list[dict[str, Any]]) -> dict[str, Any]:
         amount = f" {yen:,}円" if yen else ""
         store = _store_name(p)
         timeline.append(
-            {"time": p["time"], "label": f"{slot or '飲食'}: {label_food}推定 ({store}{amount})",
-             "category": "meal", "confidence": 0.6 if food else 0.4, "source": "payment"}
+            {
+                "time": p["time"],
+                "label": f"{slot or '飲食'}: {label_food}推定 ({store}{amount})",
+                "category": "meal",
+                "confidence": 0.6 if food else 0.4,
+                "source": "payment",
+            }
         )
         if slot in meals_seen:
             continue
@@ -101,17 +141,28 @@ def infer_day(ctx: DayContext, history: list[dict[str, Any]]) -> dict[str, Any]:
         if companions and yen and yen > 3000:
             n = companions[0]["attendee_count"]
             cards.append(
-                {"kind": "meal", "time": p["time"],
-                 "question": f"{p['time']} {store}{amount}は{n}人の会食の分で、あなたの分は約{yen // n:,}円分でしたか?",
-                 "options": ["はい", "もっと食べた", "もっと少ない"], "proposed": "はい", "confidence": 0.5,
-                 "evidence": f"カレンダー「{companions[0]['title']}」(参加者{n}人)と時刻が一致"}
+                {
+                    "kind": "meal",
+                    "time": p["time"],
+                    "question": f"{p['time']} {store}{amount}は{n}人の会食の分で、あなたの分は約{yen // n:,}円分でしたか?",
+                    "options": ["はい", "もっと食べた", "もっと少ない"],
+                    "proposed": "はい",
+                    "confidence": 0.5,
+                    "evidence": f"カレンダー「{companions[0]['title']}」(参加者{n}人)と時刻が一致",
+                }
             )
         else:
             q = f"{p['time']} {store}{amount}、{label_food}でしたか?" if food else f"{p['time']} {store}{amount}は{slot}でしたか?"
             cards.append(
-                {"kind": "meal", "time": p["time"], "question": q,
-                 "options": ["はい", "いいえ"], "proposed": "はい", "confidence": 0.6 if food else 0.45,
-                 "evidence": "決済通知の店名と時刻から推定"}
+                {
+                    "kind": "meal",
+                    "time": p["time"],
+                    "question": q,
+                    "options": ["はい", "いいえ"],
+                    "proposed": "はい",
+                    "confidence": 0.6 if food else 0.45,
+                    "evidence": "決済通知の店名と時刻から推定",
+                }
             )
 
     # --- meals from calendar when no payment ---
@@ -122,8 +173,15 @@ def infer_day(ctx: DayContext, history: list[dict[str, Any]]) -> dict[str, Any]:
         ):
             timeline.append({"time": c["start"], "end": c["end"], "label": f"{t}(予定)", "category": "meal", "confidence": 0.5, "source": "calendar"})
             cards.append(
-                {"kind": "meal", "time": c["start"], "question": f"{c['start']}の「{t}」は予定通り行きましたか?",
-                 "options": ["はい", "いいえ"], "proposed": "はい", "confidence": 0.5, "evidence": "カレンダーの予定。決済は検出されず"}
+                {
+                    "kind": "meal",
+                    "time": c["start"],
+                    "question": f"{c['start']}の「{t}」は予定通り行きましたか?",
+                    "options": ["はい", "いいえ"],
+                    "proposed": "はい",
+                    "confidence": 0.5,
+                    "evidence": "カレンダーの予定。決済は検出されず",
+                }
             )
 
     # --- exercise ---
@@ -133,15 +191,22 @@ def infer_day(ctx: DayContext, history: list[dict[str, Any]]) -> dict[str, Any]:
     gym_cal = [c for c in ctx.calendar if any(w.lower() in c["title"].lower() for w in GYM_WORDS)]
     gym_place = [p for p in ctx.places if p.get("name") and any(w.lower() in str(p["name"]).lower() for w in GYM_WORDS)]
     for e in ctx.exercises:
-        timeline.append({"time": e["start"], "end": e["end"], "label": f"運動: {e['type']} {e['minutes']}分", "category": "exercise", "confidence": 0.9, "source": "ring"})
+        timeline.append(
+            {"time": e["start"], "end": e["end"], "label": f"運動: {e['type']} {e['minutes']}分", "category": "exercise", "confidence": 0.9, "source": "ring"}
+        )
     if ctx.exercises:
         e = ctx.exercises[0]
         routine = ctx.routines.get("exercise")
         cards.append(
-            {"kind": "exercise", "time": e["start"],
-             "question": f"{e['start']}〜{e['end']}の運動は" + (f"いつもの「{routine}」でしたか?" if routine else "何でしたか?"),
-             "options": ["はい", "別のメニュー"] if routine else ["筋トレ", "有酸素", "両方", "運動ではない"],
-             "proposed": "はい" if routine else "有酸素", "confidence": 0.7, "evidence": f"デバイスが{e['type']}を{e['minutes']}分検出"}
+            {
+                "kind": "exercise",
+                "time": e["start"],
+                "question": f"{e['start']}〜{e['end']}の運動は" + (f"いつもの「{routine}」でしたか?" if routine else "何でしたか?"),
+                "options": ["はい", "別のメニュー"] if routine else ["筋トレ", "有酸素", "両方", "運動ではない"],
+                "proposed": "はい" if routine else "有酸素",
+                "confidence": 0.7,
+                "evidence": f"デバイスが{e['type']}を{e['minutes']}分検出",
+            }
         )
     elif elevated or gym_cal or gym_place:
         t = elevated[0][0] if elevated else (gym_cal[0]["start"] if gym_cal else gym_place[0]["start"])
@@ -154,8 +219,15 @@ def infer_day(ctx: DayContext, history: list[dict[str, Any]]) -> dict[str, Any]:
             why.append(f"{gym_place[0]['name']}に{gym_place[0]['minutes']}分滞在")
         timeline.append({"time": t, "label": "運動の可能性", "category": "exercise", "confidence": 0.5, "source": "hr/calendar"})
         cards.append(
-            {"kind": "exercise", "time": t, "question": f"{t}ごろ、運動しましたか?",
-             "options": ["はい", "いいえ"], "proposed": "はい", "confidence": 0.5, "evidence": "、".join(why)}
+            {
+                "kind": "exercise",
+                "time": t,
+                "question": f"{t}ごろ、運動しましたか?",
+                "options": ["はい", "いいえ"],
+                "proposed": "はい",
+                "confidence": 0.5,
+                "evidence": "、".join(why),
+            }
         )
 
     # --- work / stress ---
@@ -166,8 +238,15 @@ def infer_day(ctx: DayContext, history: list[dict[str, Any]]) -> dict[str, Any]:
     busy = ctx.metrics.get("meeting_minutes", 0)
     if busy >= 180 or ctx.metrics.get("meeting_count", 0) >= 4:
         cards.append(
-            {"kind": "stress", "time": "", "question": f"今日は会議が{ctx.metrics.get('meeting_count', 0)}件・計{busy // 60}時間でした。ストレスは?",
-             "options": ["低", "中", "高"], "proposed": "中", "confidence": 0.4, "evidence": "カレンダーの会議密度"}
+            {
+                "kind": "stress",
+                "time": "",
+                "question": f"今日は会議が{ctx.metrics.get('meeting_count', 0)}件・計{busy // 60}時間でした。ストレスは?",
+                "options": ["低", "中", "高"],
+                "proposed": "中",
+                "confidence": 0.4,
+                "evidence": "カレンダーの会議密度",
+            }
         )
 
     # --- screen ---
@@ -178,14 +257,30 @@ def infer_day(ctx: DayContext, history: list[dict[str, Any]]) -> dict[str, Any]:
     for a in ctx.app_usage[:1]:
         if a["minutes"] >= 120:
             cards.append(
-                {"kind": "stress", "time": "", "question": f"{a['app']}を{a['minutes']}分使っていました。息抜きでしたか、だらだらでしたか?",
-                 "options": ["息抜き", "だらだら", "仕事・必要"], "proposed": "息抜き", "confidence": 0.4, "evidence": "アプリ利用統計"}
+                {
+                    "kind": "stress",
+                    "time": "",
+                    "question": f"{a['app']}を{a['minutes']}分使っていました。息抜きでしたか、だらだらでしたか?",
+                    "options": ["息抜き", "だらだら", "仕事・必要"],
+                    "proposed": "息抜き",
+                    "confidence": 0.4,
+                    "evidence": "アプリ利用統計",
+                }
             )
 
     for pl in ctx.places:
         if pl in gym_place:
             continue
-        timeline.append({"time": pl["start"], "end": pl["end"], "label": f"滞在: {pl.get('name') or pl['latlon']}", "category": "move", "confidence": 0.7, "source": "location"})
+        timeline.append(
+            {
+                "time": pl["start"],
+                "end": pl["end"],
+                "label": f"滞在: {pl.get('name') or pl['latlon']}",
+                "category": "move",
+                "confidence": 0.7,
+                "source": "location",
+            }
+        )
 
     # --- mood (always last) ---
     guess = 3
@@ -198,8 +293,15 @@ def infer_day(ctx: DayContext, history: list[dict[str, Any]]) -> dict[str, Any]:
         guess -= 1
     guess = max(1, min(5, guess))
     cards.append(
-        {"kind": "mood", "time": "", "question": "今日全体の調子は?", "options": ["1", "2", "3", "4", "5"],
-         "proposed": str(guess), "confidence": 0.3, "evidence": "睡眠時間と深夜利用からの仮の推定"}
+        {
+            "kind": "mood",
+            "time": "",
+            "question": "今日全体の調子は?",
+            "options": ["1", "2", "3", "4", "5"],
+            "proposed": str(guess),
+            "confidence": 0.3,
+            "evidence": "睡眠時間と深夜利用からの仮の推定",
+        }
     )
 
     timeline.sort(key=lambda x: _hm_to_h(x["time"]))
@@ -230,9 +332,12 @@ def infer_insights(rows: list[dict[str, Any]], answers: list[dict[str, Any]]) ->
             if mb and abs(ma - mb) / abs(mb) >= 0.08:
                 diff = (ma - mb) / mb * 100
                 out.append(
-                    {"statement": f"{name_true}日は、それ以外の日より{metric_label}が平均{abs(diff):.0f}%{'高い' if diff > 0 else '低い'}。",
-                     "evidence": f"{name_true}: {len(a)}日 平均{ma:.1f}{unit} / それ以外: {len(b)}日 平均{mb:.1f}{unit}",
-                     "confidence": min(0.9, 0.4 + 0.05 * min(len(a), len(b))), "n_samples": len(a) + len(b)}
+                    {
+                        "statement": f"{name_true}日は、それ以外の日より{metric_label}が平均{abs(diff):.0f}%{'高い' if diff > 0 else '低い'}。",
+                        "evidence": f"{name_true}: {len(a)}日 平均{ma:.1f}{unit} / それ以外: {len(b)}日 平均{mb:.1f}{unit}",
+                        "confidence": min(0.9, 0.4 + 0.05 * min(len(a), len(b))),
+                        "n_samples": len(a) + len(b),
+                    }
                 )
 
     compare("運動した", lambda r: (r.get("exercise_minutes") or 0) >= 20, "hrv_avg", "HRV", "ms")

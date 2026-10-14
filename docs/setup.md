@@ -42,7 +42,7 @@
 
 参考: [Render Blueprint の公式ドキュメント](https://render.com/docs/infrastructure-as-code)、[無料枠の仕様](https://render.com/docs/free)
 
-API キー方式にしたいときは環境変数 `INFERENCE_BACKEND=api` と `ANTHROPIC_API_KEY` を設定。
+環境変数 `RAW_EVENT_RETENTION_DAYS`(既定 90)で生データの保管日数を変えられる。`0` で無期限。
 
 ## 3. cron-job.org で夜の準備を予約する(5分)
 
@@ -135,6 +135,26 @@ PWA の設定タブに「朝のひとこと」欄。キーボードのマイク�
 つまり自動で品目まで取れるのは「出前・通販」だけで、店頭の買い物は「店名+金額+時刻+場所」から AI が推定し、夜のカードで確認(必要なら自由入力で訂正)するのがこのアプリの前提です。
 
 プライバシーの線引き: 通知の読み取りは、リストのアプリの通知と、決済・注文・レシートらしい文面を含む通知だけが対象です。LINE、メッセージ、Slack、Discord、Instagram などの会話アプリの通知は、文面に「円」が含まれていても読みません(アプリ内に固定のリストがあります)。
+
+## 10. データの保管・バックアップ・削除
+
+無料枠の DB は休眠・仕様変更・終了があり得るので、「手元に戻せる」状態を保ちます。
+
+- **保管期間**: 生データは `RAW_EVENT_RETENTION_DAYS`(既定 90 日)を過ぎると毎晩の `/api/jobs/evening` で消えます。日ごとの集計・カード・傾向は残ります。今すぐ消すなら `POST /api/jobs/purge`
+- **バックアップ(月 1 回を目安)**: PowerShell で
+
+```bash
+curl -H "X-Api-Token: <APP_TOKEN>" https://wellness-app-xxxx.onrender.com/api/data/export -o wellness-backup-2026-10-14.json
+```
+
+  出てきた JSON をパスワード付きの場所(自分の PC の暗号化フォルダ等)に置く。健康・位置・決済の記録そのものなので、クラウドの共有フォルダには置かない
+- **復元**: 新しい DB を `DATABASE_URL` に設定してデプロイ後、
+
+```bash
+curl -X POST -H "X-Api-Token: <APP_TOKEN>" -H "Content-Type: application/json" --data-binary @wellness-backup-2026-10-14.json "https://wellness-app-xxxx.onrender.com/api/data/import?confirm=replace"
+```
+
+- **全部消す**: `curl -X DELETE -H "X-Api-Token: <APP_TOKEN>" "https://wellness-app-xxxx.onrender.com/api/data?confirm=delete-everything"`。覚えた場所・地図キャッシュも消える。消したあとは Neon 側のプロジェクト削除で物理的にも消える
 
 ## 別の選択肢
 

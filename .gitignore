@@ -33,3 +33,6 @@ apply/
 # Never commit account recovery codes
 github-recovery-codes.txt
 *recovery-codes*
+
+# BootCamp knowledge base (bootcamp-internal material, never public)
+bootcamp/

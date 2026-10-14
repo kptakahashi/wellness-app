@@ -15,23 +15,39 @@ from typing import Any
 from sqlmodel import Session, select
 
 from ..core.models import Card, RawEvent, Setting
-from ..core.timeutil import day_bounds, fmt_hm, local_day_of, to_utc_naive
+from ..core.timeutil import day_bounds, fmt_hm, local_day_of
 from . import poi
 from .places import dist_m, label_for, load_places
 
 NOISE_PACKAGES = {"com.android.systemui", "com.google.android.apps.nexuslauncher", "android"}
 KNOWN_APPS = {
-    "com.twitter.android": "X", "com.google.android.youtube": "YouTube", "jp.naver.line.android": "LINE",
-    "com.instagram.android": "Instagram", "com.zhiliaoapp.musically": "TikTok", "com.android.chrome": "Chrome",
-    "com.Slack": "Slack", "com.google.android.gm": "Gmail", "com.facebook.katana": "Facebook",
-    "com.google.android.apps.maps": "Google マップ", "jp.ne.paypay.android.app": "PayPay",
-    "com.moneyforward.android.app": "マネーフォワード", "com.netflix.mediaclient": "Netflix",
-    "com.amazon.mShop.android.shopping": "Amazon", "com.spotify.music": "Spotify",
-    "com.google.android.apps.photos": "Google フォト", "com.reddit.frontpage": "Reddit", "com.discord": "Discord",
-    "com.google.android.apps.docs": "Google ドライブ", "com.microsoft.teams": "Teams",
-    "com.google.android.calendar": "Google カレンダー", "jp.co.yahoo.android.yjtop": "Yahoo!",
-    "com.gdjztech.ringconn": "RingConn", "com.anthropic.claude": "Claude", "com.openai.chatgpt": "ChatGPT",
-    "jp.mercari": "メルカリ", "com.google.android.apps.messaging": "メッセージ",
+    "com.twitter.android": "X",
+    "com.google.android.youtube": "YouTube",
+    "jp.naver.line.android": "LINE",
+    "com.instagram.android": "Instagram",
+    "com.zhiliaoapp.musically": "TikTok",
+    "com.android.chrome": "Chrome",
+    "com.Slack": "Slack",
+    "com.google.android.gm": "Gmail",
+    "com.facebook.katana": "Facebook",
+    "com.google.android.apps.maps": "Google マップ",
+    "jp.ne.paypay.android.app": "PayPay",
+    "com.moneyforward.android.app": "マネーフォワード",
+    "com.netflix.mediaclient": "Netflix",
+    "com.amazon.mShop.android.shopping": "Amazon",
+    "com.spotify.music": "Spotify",
+    "com.google.android.apps.photos": "Google フォト",
+    "com.reddit.frontpage": "Reddit",
+    "com.discord": "Discord",
+    "com.google.android.apps.docs": "Google ドライブ",
+    "com.microsoft.teams": "Teams",
+    "com.google.android.calendar": "Google カレンダー",
+    "jp.co.yahoo.android.yjtop": "Yahoo!",
+    "com.gdjztech.ringconn": "RingConn",
+    "com.anthropic.claude": "Claude",
+    "com.openai.chatgpt": "ChatGPT",
+    "jp.mercari": "メルカリ",
+    "com.google.android.apps.messaging": "メッセージ",
 }
 
 
@@ -111,8 +127,7 @@ def _events_for_day(session: Session, day: date) -> list[RawEvent]:
     start, end = day_bounds(day)
     # Sleep sessions that *end* on this day belong to it (went to bed the night before).
     stmt = select(RawEvent).where(
-        ((RawEvent.start_ts >= start) & (RawEvent.start_ts < end))
-        | ((RawEvent.kind == "sleep_session") & (RawEvent.end_ts >= start) & (RawEvent.end_ts < end))
+        ((RawEvent.start_ts >= start) & (RawEvent.start_ts < end)) | ((RawEvent.kind == "sleep_session") & (RawEvent.end_ts >= start) & (RawEvent.end_ts < end))
     )
     return list(session.exec(stmt))
 
@@ -150,11 +165,9 @@ def summarize_sleep(rows: list[RawEvent], day: date) -> dict[str, Any] | None:
     best: dict[str, Any] | None = None
     for night in nights:
         leaves = [
-            r for r in night
-            if not any(
-                o is not r and o.start_ts >= r.start_ts and (o.end_ts or o.start_ts) <= (r.end_ts or r.start_ts) and dur(o) < dur(r)
-                for o in night
-            )
+            r
+            for r in night
+            if not any(o is not r and o.start_ts >= r.start_ts and (o.end_ts or o.start_ts) <= (r.end_ts or r.start_ts) and dur(o) < dur(r) for o in night)
         ]
         asleep = [r for r in leaves if stage_of(r) != "awake_min"]
         if not asleep:
@@ -217,10 +230,7 @@ def _cluster_visits(samples: list[Sample], radius_m: float = 150, min_minutes: i
     out: list[list[Sample]] = []
     cur: list[Sample] = []
     for smp in sorted(samples, key=lambda x: x[0]):
-        if cur and (
-            dist_m(cur[0][1], cur[0][2], smp[1], smp[2]) > radius_m
-            or (smp[0] - cur[-1][0]).total_seconds() > gap_minutes * 60
-        ):
+        if cur and (dist_m(cur[0][1], cur[0][2], smp[1], smp[2]) > radius_m or (smp[0] - cur[-1][0]).total_seconds() > gap_minutes * 60):
             out.append(cur)
             cur = []
         cur.append(smp)
@@ -322,9 +332,7 @@ def build_day_context(session: Session, day: date) -> DayContext:
             spo2.append(float(p.get("percent", 0)))
         elif e.kind == "exercise":
             minutes = ((e.end_ts or e.start_ts) - e.start_ts).total_seconds() / 60
-            ctx.exercises.append(
-                {"start": fmt_hm(e.start_ts), "end": fmt_hm(e.end_ts), "type": p.get("type", "運動"), "minutes": round(minutes)}
-            )
+            ctx.exercises.append({"start": fmt_hm(e.start_ts), "end": fmt_hm(e.end_ts), "type": p.get("type", "運動"), "minutes": round(minutes)})
         elif e.kind in ("payment", "notification"):
             ctx.payments.append(
                 {
@@ -434,7 +442,4 @@ def previous_answers(session: Session, day: date, days: int = 14) -> list[dict[s
     """Recent answered cards, so the model can learn 'usual' patterns and stop asking."""
     lo = (day - timedelta(days=days)).isoformat()
     rows = session.exec(select(Card).where(Card.date >= lo, Card.date < day.isoformat(), Card.answer.is_not(None))).all()
-    return [
-        {"date": c.date, "kind": c.kind, "question": c.question, "answer": c.answer, "note": c.note}
-        for c in rows
-    ][-40:]
+    return [{"date": c.date, "kind": c.kind, "question": c.question, "answer": c.answer, "note": c.note} for c in rows][-40:]

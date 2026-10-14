@@ -11,7 +11,7 @@ Labels live in the `settings` row "places":
 from __future__ import annotations
 
 from collections import defaultdict
-from datetime import date, datetime, timedelta, timezone
+from datetime import UTC, date, datetime, timedelta
 from math import cos, radians, sqrt
 from typing import Any
 
@@ -81,7 +81,7 @@ def upsert_place(session: Session, lat: float, lon: float, label: str, source: s
 
 # ---------------------------------------------------------------- clustering helpers
 def _location_samples(session: Session, days: int) -> list[tuple[datetime, float, float, int]]:
-    since = datetime.now(timezone.utc) - timedelta(days=days)
+    since = datetime.now(UTC) - timedelta(days=days)
     rows = session.exec(select(RawEvent).where(RawEvent.kind == "location_sample", RawEvent.start_ts >= since)).all()
     out: list[tuple[datetime, float, float, int]] = []
     for r in rows:

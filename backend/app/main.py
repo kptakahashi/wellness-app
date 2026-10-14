@@ -14,8 +14,8 @@ from .api.routes import router
 from .core.config import settings
 from .core.db import init_db, session_scope
 from .core.timeutil import TZ, now_local
-from .inference.engine import generate_insights, infer_day
 from .services.calendar_sync import sync_calendars
+from .services.jobs import run_evening, run_weekly
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 log = logging.getLogger("wellness-app")
@@ -24,19 +24,14 @@ WEB_DIR = Path(__file__).parent / "web"
 
 
 def job_prepare_evening() -> None:
-    """Runs every evening: pull calendar, infer today, so cards are ready when the user opens the app."""
+    """Runs every evening: pull calendar, infer today, purge old raw data. Cards are ready when the user opens the app."""
     with session_scope() as s:
-        try:
-            if settings.calendar_ics_urls:
-                sync_calendars(s)
-        except Exception:  # noqa: BLE001
-            log.exception("calendar sync failed")
-        infer_day(s, now_local().date())
+        run_evening(s)
 
 
 def job_weekly_insights() -> None:
     with session_scope() as s:
-        generate_insights(s, end=now_local().date(), days=28)
+        run_weekly(s)
 
 
 def job_calendar() -> None:

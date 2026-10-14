@@ -24,11 +24,14 @@ class Settings(BaseSettings):
     # Accepts postgres:// or postgresql:// and normalises to the psycopg driver.
     database_url: str | None = None
 
-    # Inference backend: "agent_sdk" (Claude Code subscription via Agent SDK),
-    # "api" (Anthropic API key), or "rules" (no LLM, deterministic fallback).
+    # Inference backend: "agent_sdk" (Claude Code subscription via Agent SDK) or
+    # "rules" (no LLM, deterministic fallback). No API-key backend: free tiers only.
     inference_backend: str = "agent_sdk"
-    anthropic_api_key: str | None = None
     claude_model: str = "claude-opus-5-5"
+
+    # Raw events older than this many days are deleted every evening. Daily metrics
+    # (DaySummary), cards and insights are kept, so trends survive. 0 = keep forever.
+    raw_event_retention_days: int = 90
 
     # Google Calendar private iCal URL(s), comma separated. No OAuth needed.
     calendar_ics_urls: str = ""
@@ -60,9 +63,9 @@ class Settings(BaseSettings):
         if not url:
             return f"sqlite:///{self.db_path}"
         if url.startswith("postgres://"):
-            url = "postgresql://" + url[len("postgres://"):]
+            url = "postgresql://" + url[len("postgres://") :]
         if url.startswith("postgresql://"):
-            url = "postgresql+psycopg://" + url[len("postgresql://"):]
+            url = "postgresql+psycopg://" + url[len("postgresql://") :]
         return url
 
 

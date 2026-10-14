@@ -7,7 +7,7 @@ events in a +/- window into RawEvents of kind `calendar_event`.
 
 from __future__ import annotations
 
-from datetime import date, datetime, time, timedelta, timezone
+from datetime import UTC, date, datetime, time, timedelta
 from typing import Any
 
 import httpx
@@ -34,7 +34,7 @@ def fetch_ics(url: str) -> list[EventIn]:
     if b"BEGIN:VCALENDAR" not in resp.content[:2000]:
         raise RuntimeError(f"calendar URL did not return iCal data (got {resp.headers.get('content-type', '?')})")
     cal = Calendar.from_ical(resp.content)
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     lo, hi = now - timedelta(days=30), now + timedelta(days=7)
     out: list[EventIn] = []
     for comp in cal.walk("VEVENT"):

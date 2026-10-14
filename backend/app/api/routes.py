@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date, datetime, timedelta, timezone
+from datetime import UTC, date, datetime, timedelta
 from typing import Any
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
@@ -8,7 +8,8 @@ from pydantic import BaseModel, Field
 from sqlmodel import Session, select
 
 from ..core.auth import require_token
-from ..core.db import get_session
+from ..core.config import settings
+from ..core.db import get_session, session_scope
 from ..core.models import Card, DaySummary, Insight, RawEvent, Setting
 from ..core.timeutil import now_local
 from ..inference.engine import generate_insights, infer_day
@@ -17,6 +18,10 @@ from ..services import poi as poi_svc
 from ..services.calendar_sync import sync_calendars
 from ..services.daycontext import build_day_context
 from ..services.ingest import BatchIn, ingest_batch
+from ..services.jobs import run_evening, run_weekly
+from ..services.retention import delete_everything, purge_raw_events
+from ..services.snapshot import export_data, import_data
+from ..services.usage import collect_day_events, usage_metrics
 
 router = APIRouter(prefix="/api", dependencies=[Depends(require_token)])
 
@@ -94,10 +99,7 @@ def _day_or_400(value: str) -> date:
 @router.get("/days")
 def list_days(limit: int = 31, session: Session = Depends(get_session)) -> list[dict[str, Any]]:
     rows = session.exec(select(DaySummary).order_by(DaySummary.date.desc()).limit(limit)).all()
-    return [
-        {"date": d.date, "status": d.status, "metrics": d.metrics, "summary": d.summary_text, "condition": d.overall_condition}
-        for d in rows
-    ]
+    return [{"date": d.date, "status": d.status, "metrics": d.metrics, "summary": d.summary_text, "condition": d.overall_condition} for d in rows]
 
 
 @router.get("/days/{day}")
@@ -150,7 +152,7 @@ def complete_review(day: str, session: Session = Depends(get_session)) -> dict[s
     if not summary:
         raise HTTPException(404, "day not inferred yet")
     summary.status = "reviewed"
-    summary.reviewed_at = datetime.now(timezone.utc)
+    summary.reviewed_at = datetime.now(UTC)
     session.add(summary)
     session.commit()
     return {"ok": True}
@@ -173,7 +175,7 @@ def answer_card(card_id: int, body: AnswerIn, session: Session = Depends(get_ses
         raise HTTPException(400, "answer is empty")
     card.answer = answer
     card.note = (body.note or "").strip() or None
-    card.answered_at = datetime.now(timezone.utc)
+    card.answered_at = datetime.now(UTC)
     session.add(card)
     if card.kind == "mood" and answer.isdigit():
         summary = session.exec(select(DaySummary).where(DaySummary.date == card.date)).first()
@@ -205,16 +207,8 @@ def post_insights(days: int = 28, session: Session = Depends(get_session)) -> li
 
 # ------------------------------------------------------------------ jobs (for external cron on free hosting that sleeps)
 def _run_evening_job() -> None:
-    from ..core.config import settings as _settings
-    from ..core.db import session_scope
-
     with session_scope() as s:
-        if _settings.calendar_ics_urls:
-            try:
-                sync_calendars(s)
-            except Exception:  # noqa: BLE001
-                pass
-        infer_day(s, now_local().date())
+        run_evening(s)
 
 
 @router.post("/jobs/evening", status_code=202)
@@ -224,7 +218,7 @@ def job_evening(background: BackgroundTasks, force: bool = False, session: Sessi
     today = now_local().date().isoformat()
     existing = session.exec(select(DaySummary).where(DaySummary.date == today)).first()
     if existing and existing.generated_at and not force:
-        age = datetime.now(timezone.utc) - existing.generated_at.replace(tzinfo=existing.generated_at.tzinfo or timezone.utc)
+        age = datetime.now(UTC) - existing.generated_at.replace(tzinfo=existing.generated_at.tzinfo or UTC)
         if age.total_seconds() < 2 * 3600:
             return {"ok": True, "status": "already_prepared", "generated_at": existing.generated_at}
     background.add_task(_run_evening_job)
@@ -234,13 +228,53 @@ def job_evening(background: BackgroundTasks, force: bool = False, session: Sessi
 @router.post("/jobs/weekly", status_code=202)
 def job_weekly(background: BackgroundTasks) -> dict[str, Any]:
     def run() -> None:
-        from ..core.db import session_scope
-
         with session_scope() as s:
-            generate_insights(s, end=now_local().date(), days=28)
+            run_weekly(s)
 
     background.add_task(run)
     return {"ok": True, "status": "scheduled"}
+
+
+@router.post("/jobs/purge")
+def job_purge(session: Session = Depends(get_session)) -> dict[str, Any]:
+    """Delete raw events past RAW_EVENT_RETENTION_DAYS now (the evening job does this too)."""
+    keep = settings.raw_event_retention_days
+    return {"ok": True, "keep_days": keep, "deleted": purge_raw_events(session, keep_days=keep)}
+
+
+# ------------------------------------------------------------------ usage (the MVP's two numbers)
+@router.get("/metrics/usage")
+def get_usage(session: Session = Depends(get_session)) -> dict[str, Any]:
+    """Coverage (how much was captured automatically), accuracy (how answers went), continuity (streak)."""
+    today = now_local().date()
+    start = today - timedelta(days=27)
+    cards = session.exec(select(Card).where(Card.date >= start.isoformat(), Card.date <= today.isoformat())).all()
+    return usage_metrics(cards, today, days=collect_day_events(session, start, today))
+
+
+# ------------------------------------------------------------------ my data: export, restore, delete
+@router.get("/data/export")
+def data_export(session: Session = Depends(get_session)) -> dict[str, Any]:
+    """Everything, unchanged, as one JSON document. Save it; `POST /data/import` puts it back."""
+    return export_data(session)
+
+
+@router.post("/data/import")
+def data_import(data: dict[str, Any], confirm: str = "", session: Session = Depends(get_session)) -> dict[str, Any]:
+    """Replace the whole database with an export. Destructive, so it needs ?confirm=replace."""
+    if confirm != "replace":
+        raise HTTPException(400, "add ?confirm=replace to overwrite the current database")
+    if not isinstance(data.get("raw_events"), list) or "anchor" not in data:
+        raise HTTPException(400, "not an export produced by /api/data/export")
+    return {"ok": True, **import_data(session, data)}
+
+
+@router.delete("/data")
+def data_delete(confirm: str = "", session: Session = Depends(get_session)) -> dict[str, Any]:
+    """Delete every row of personal data. Needs ?confirm=delete-everything."""
+    if confirm != "delete-everything":
+        raise HTTPException(400, "add ?confirm=delete-everything to delete all data")
+    return {"ok": True, "deleted": delete_everything(session)}
 
 
 # ------------------------------------------------------------------ places

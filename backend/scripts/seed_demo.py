@@ -15,7 +15,7 @@ from __future__ import annotations
 import argparse
 import random
 import sys
-from datetime import date, datetime, timedelta, timezone
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -29,14 +29,27 @@ from app.services.ingest import BatchIn, EventIn, ingest_batch  # noqa: E402
 random.seed(7)
 
 LUNCH = [
-    ("ラーメン二郎 新宿", 1000, "ramen"), ("日高屋 新宿西口", 880, "ramen"), ("松屋 新宿", 790, "donburi"),
-    ("吉野家", 650, "donburi"), ("大戸屋ごはん処", 1150, "teishoku"), ("やよい軒", 980, "teishoku"),
-    ("サブウェイ", 890, "light"), ("セブン-イレブン", 620, "light"), ("丸亀製麺", 720, "udon"),
+    ("ラーメン二郎 新宿", 1000, "ramen"),
+    ("日高屋 新宿西口", 880, "ramen"),
+    ("松屋 新宿", 790, "donburi"),
+    ("吉野家", 650, "donburi"),
+    ("大戸屋ごはん処", 1150, "teishoku"),
+    ("やよい軒", 980, "teishoku"),
+    ("サブウェイ", 890, "light"),
+    ("セブン-イレブン", 620, "light"),
+    ("丸亀製麺", 720, "udon"),
 ]
 BREAKFAST = [("セブン-イレブン", 480), ("ファミリーマート", 430), ("スターバックス", 650)]
 DINNER = [("Uber Eats", 1800), ("ローソン", 760), ("サイゼリヤ", 1400), ("自炊", 0)]
 IZAKAYA = [("鳥貴族 新宿東口", 11800, 4), ("土間土間", 15600, 5), ("串カツ田中", 9200, 3)]
-APPS = [("YouTube", "com.google.android.youtube"), ("X", "com.twitter.android"), ("Slack", "com.Slack"), ("Chrome", "com.android.chrome"), ("LINE", "jp.naver.line.android"), ("原神", "com.miHoYo.GenshinImpact")]
+APPS = [
+    ("YouTube", "com.google.android.youtube"),
+    ("X", "com.twitter.android"),
+    ("Slack", "com.Slack"),
+    ("Chrome", "com.android.chrome"),
+    ("LINE", "jp.naver.line.android"),
+    ("原神", "com.miHoYo.GenshinImpact"),
+]
 MEETINGS = ["定例MTG", "1on1", "顧客打合せ", "企画レビュー", "部門会議", "採用面談", "週次報告"]
 
 
@@ -60,7 +73,18 @@ def make_day(d: date, prev_late_screen: int, gym_yesterday: bool) -> tuple[list[
     wake = datetime(d.year, d.month, d.day, wake_h, wake_m, tzinfo=TZ)
     bed = wake - timedelta(hours=sleep_h)
     deep = int(sleep_h * 60 * random.uniform(0.15, 0.25))
-    events.append(ev("health_connect", "sleep_session", bed.isoformat(), wake.isoformat(), deep_min=deep, rem_min=int(sleep_h * 60 * 0.22), light_min=int(sleep_h * 60 * 0.5), awake_min=random.randint(5, 30)))
+    events.append(
+        ev(
+            "health_connect",
+            "sleep_session",
+            bed.isoformat(),
+            wake.isoformat(),
+            deep_min=deep,
+            rem_min=int(sleep_h * 60 * 0.22),
+            light_min=int(sleep_h * 60 * 0.5),
+            awake_min=random.randint(5, 30),
+        )
+    )
     events.append(ev("health_connect", "resting_hr", ts(d, 4), bpm=random.randint(52, 60) + (3 if prev_late_screen >= 60 else 0)))
     base_hrv = random.gauss(48, 6) + (4 if gym_yesterday else 0) - (5 if prev_late_screen >= 60 else 0)
     for h in range(int(bed.hour), int(bed.hour) + 7):
@@ -73,24 +97,64 @@ def make_day(d: date, prev_late_screen: int, gym_yesterday: bool) -> tuple[list[
     heavy = lunch[2] in ("ramen", "donburi")
     lunch_h, lunch_m = 12, random.randint(10, 50)
     if not weekend or random.random() < 0.6:
-        events.append(ev("notification", "notification", ts(d, lunch_h, lunch_m), package="jp.ne.paypay.android.app", app_label="PayPay", title=f"{lunch[0]}", text=f"{lunch[1]:,}円のお支払いが完了しました"))
+        events.append(
+            ev(
+                "notification",
+                "notification",
+                ts(d, lunch_h, lunch_m),
+                package="jp.ne.paypay.android.app",
+                app_label="PayPay",
+                title=f"{lunch[0]}",
+                text=f"{lunch[1]:,}円のお支払いが完了しました",
+            )
+        )
 
     # --- breakfast
     if random.random() < 0.8:
         b = random.choice(BREAKFAST)
-        events.append(ev("notification", "notification", ts(d, wake_h + 1, random.randint(0, 30)), package="com.moneyforward.android.app", app_label="マネーフォワード ME", title="新着の入出金", text=f"{b[0]} {b[1]:,}円 (楽天カード)"))
+        events.append(
+            ev(
+                "notification",
+                "notification",
+                ts(d, wake_h + 1, random.randint(0, 30)),
+                package="com.moneyforward.android.app",
+                app_label="マネーフォワード ME",
+                title="新着の入出金",
+                text=f"{b[0]} {b[1]:,}円 (楽天カード)",
+            )
+        )
 
     # --- dinner / izakaya with calendar
     izakaya = (wd in (2, 4)) and random.random() < 0.6
     if izakaya:
         name, amount, people = random.choice(IZAKAYA)
         events.append(ev("calendar", "calendar_event", ts(d, 19), ts(d, 21, 30), title="チーム飲み", location=name, attendee_count=people, all_day=False))
-        events.append(ev("notification", "notification", ts(d, 21, random.randint(20, 50)), package="jp.ne.paypay.android.app", app_label="PayPay", title=name, text=f"{amount:,}円のお支払いが完了しました"))
+        events.append(
+            ev(
+                "notification",
+                "notification",
+                ts(d, 21, random.randint(20, 50)),
+                package="jp.ne.paypay.android.app",
+                app_label="PayPay",
+                title=name,
+                text=f"{amount:,}円のお支払いが完了しました",
+            )
+        )
         events.append(ev("location", "place_visit", ts(d, 19, 5), ts(d, 21, 40), name=name, lat=35.6938, lon=139.7034))
     else:
         dn = random.choice(DINNER)
         if dn[1]:
-            events.append(ev("notification", "notification", ts(d, 19, random.randint(0, 59)), package="com.moneyforward.android.app", app_label="マネーフォワード ME", title="新着の入出金", text=f"{dn[0]} {dn[1]:,}円 (楽天カード)"))
+            events.append(
+                ev(
+                    "notification",
+                    "notification",
+                    ts(d, 19, random.randint(0, 59)),
+                    package="com.moneyforward.android.app",
+                    app_label="マネーフォワード ME",
+                    title="新着の入出金",
+                    text=f"{dn[0]} {dn[1]:,}円 (楽天カード)",
+                )
+            )
 
     # --- calendar meetings (weekday)
     n_meet = 0
@@ -98,13 +162,26 @@ def make_day(d: date, prev_late_screen: int, gym_yesterday: bool) -> tuple[list[
         n_meet = random.choice([1, 2, 3, 4, 5, 6])
         hours = random.sample([9, 10, 11, 13, 14, 15, 16, 17], n_meet)
         for h in sorted(hours):
-            events.append(ev("calendar", "calendar_event", ts(d, h), ts(d, h, 50), title=random.choice(MEETINGS), location="", attendee_count=random.randint(0, 6), all_day=False))
+            events.append(
+                ev(
+                    "calendar",
+                    "calendar_event",
+                    ts(d, h),
+                    ts(d, h, 50),
+                    title=random.choice(MEETINGS),
+                    location="",
+                    attendee_count=random.randint(0, 6),
+                    all_day=False,
+                )
+            )
         events.append(ev("location", "place_visit", ts(d, 9, 20), ts(d, 18, 30), name="オフィス", lat=35.6895, lon=139.6917))
 
     # --- exercise: Mon/Wed/Fri evening gym, sometimes skipped
     gym = wd in (0, 2, 4) and random.random() < 0.75 and not izakaya
     if gym:
-        events.append(ev("calendar", "calendar_event", ts(d, 18, 30), ts(d, 19, 30), title="ジム", location="エニタイムフィットネス", attendee_count=0, all_day=False))
+        events.append(
+            ev("calendar", "calendar_event", ts(d, 18, 30), ts(d, 19, 30), title="ジム", location="エニタイムフィットネス", attendee_count=0, all_day=False)
+        )
         events.append(ev("location", "place_visit", ts(d, 18, 35), ts(d, 19, 40), name="エニタイムフィットネス 新宿", lat=35.69, lon=139.70))
         if random.random() < 0.6:
             events.append(ev("health_connect", "exercise", ts(d, 18, 40), ts(d, 19, 30), type="筋力トレーニング"))
@@ -144,7 +221,9 @@ def make_day(d: date, prev_late_screen: int, gym_yesterday: bool) -> tuple[list[
         for _ in range(random.randint(2, 6)):
             h = random.choice([8, 12, 13, 18, 20, 21, 22])
             mins = random.randint(3, 25)
-            events.append(ev("usage", "app_usage", ts(d, h, random.randint(0, 30)), ts(d, h, min(59, random.randint(0, 30) + mins)), package=pkg, app_label=label))
+            events.append(
+                ev("usage", "app_usage", ts(d, h, random.randint(0, 30)), ts(d, h, min(59, random.randint(0, 30) + mins)), package=pkg, app_label=label)
+            )
     if random.random() < 0.35:
         late_screen = random.randint(45, 110)
         label, pkg = random.choice([APPS[0], APPS[1], APPS[5]])
@@ -158,7 +237,11 @@ def make_day(d: date, prev_late_screen: int, gym_yesterday: bool) -> tuple[list[
 
     # --- morning voice note (sometimes)
     if random.random() < 0.5:
-        text = random.choice(["わりとすっきり", "頭が重い", "まあ普通", "ちょっと眠い", "体が軽い"]) if sleep_h >= 6.5 else random.choice(["眠い", "頭が重い", "だるい"])
+        text = (
+            random.choice(["わりとすっきり", "頭が重い", "まあ普通", "ちょっと眠い", "体が軽い"])
+            if sleep_h >= 6.5
+            else random.choice(["眠い", "頭が重い", "だるい"])
+        )
         events.append(ev("voice", "voice_note", ts(d, wake_h, wake_m + 5 if wake_m < 55 else 59), text=text))
 
     return events, late_screen, gym
@@ -199,7 +282,7 @@ def main() -> None:
             if args.answer and d < today:
                 for c in cards:
                     c.answer = c.proposed
-                    c.answered_at = datetime.now(timezone.utc)
+                    c.answered_at = datetime.now(UTC)
                     s.add(c)
                     if c.kind == "mood" and c.answer and c.answer.isdigit():
                         summary.overall_condition = int(c.answer)

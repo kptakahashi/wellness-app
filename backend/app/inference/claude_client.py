@@ -1,11 +1,14 @@
-"""Two ways to reach Claude, behind one function.
+"""One way to reach Claude, behind one function.
 
 - agent_sdk : Claude Agent SDK. Runs the Claude Code binary as a subprocess, so it can use the
               owner's own Claude Code login / long-lived token (CLAUDE_CODE_OAUTH_TOKEN from
-              `claude setup-token`). Intended for personal, single-user use.
-- api       : Anthropic API key via the official `anthropic` SDK with structured outputs.
+              `claude setup-token`). Intended for personal, single-user use. No API key, no
+              per-call billing.
 
-Both return a dict already validated against the requested JSON schema.
+The former "api" backend (Anthropic API key) was removed on purpose: this project runs on
+free tiers only and never holds a paid, keyed API credential.
+
+Returns a dict already validated against the requested JSON schema.
 """
 
 from __future__ import annotations
@@ -13,7 +16,6 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-import os
 from typing import Any
 
 from ..core.config import settings
@@ -69,37 +71,17 @@ def _agent_sdk(system: str, user: str, schema: dict[str, Any]) -> dict[str, Any]
     return asyncio.run(_agent_sdk_async(system, user, schema))
 
 
-# ---------------------------------------------------------------- api key
-def _api(system: str, user: str, schema: dict[str, Any]) -> dict[str, Any]:
-    import anthropic
-
-    client = anthropic.Anthropic(api_key=settings.anthropic_api_key or os.environ.get("ANTHROPIC_API_KEY"))
-    response = client.messages.create(
-        model=settings.claude_model,
-        max_tokens=16000,
-        system=system,
-        messages=[{"role": "user", "content": user}],
-        output_config={"format": {"type": "json_schema", "schema": schema}},
-    )
-    if response.stop_reason == "refusal":
-        raise InferenceError("model refused")
-    text = next(b.text for b in response.content if b.type == "text")
-    return json.loads(text)
-
-
 def complete_json(system: str, user: str, schema: dict[str, Any]) -> tuple[dict[str, Any], str]:
     """Return (data, backend_used). Raises InferenceError when no LLM backend is usable."""
     backend = settings.inference_backend
     if backend == "rules":
         raise InferenceError("rules backend selected")
+    if backend != "agent_sdk":
+        raise InferenceError(f"unknown backend {backend}")
     try:
-        if backend == "agent_sdk":
-            return _agent_sdk(system, user, schema), "agent_sdk"
-        if backend == "api":
-            return _api(system, user, schema), "api"
+        return _agent_sdk(system, user, schema), "agent_sdk"
     except InferenceError:
         raise
     except Exception as exc:  # noqa: BLE001
         log.exception("inference backend %s failed", backend)
         raise InferenceError(str(exc)) from exc
-    raise InferenceError(f"unknown backend {backend}")

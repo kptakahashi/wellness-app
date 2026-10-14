@@ -215,8 +215,28 @@
   async function renderSettings() {
     $("#dateLabel").textContent = "";
     let status = null;
+    let usage = null;
     try { status = await api("/status"); } catch (_) {}
+    try { usage = await api("/metrics/usage"); } catch (_) {}
+    const fmt = (v, unit = "") => (v === null || v === undefined ? "—" : `${v}${unit}`);
+    const weekBlock = (w, label) => `
+        <p class="ev" style="margin:8px 0 2px"><b>${label}</b>(データのある日 ${w.days_with_data})</p>
+        <p class="ev" style="margin:0">自動取得: 7系統中 平均 ${fmt(w.sources_avg)} · 食事 ${w.meal_slots_total}枠中 ${w.meal_slots_captured}枠 · 空白 平均 ${fmt(w.gap_hours_avg, "h")}/日</p>
+        <p class="ev" style="margin:0">回答: ${w.nights_answered}晩 ${w.cards_answered}枚 — 一発 ${w.accepted} · 訂正 ${w.corrected} · 手入力 ${w.free_text}(うち食事 ${w.meals_free_text})</p>`;
+    const dayRows = usage
+      ? usage.days.map((d) => `<tr><td>${d.date.slice(5)}</td><td>${d.sources.length}/7</td><td>${d.meal_slots}/3</td><td>${fmt(d.gap_hours, "h")}</td><td>${d.answered ? "✓" : ""}</td></tr>`).join("")
+      : "";
+    const usageHtml = usage
+      ? `<p class="ev" style="margin:0">連続 <b>${usage.streak_nights}</b> 晩 · 直近7日 ${usage.nights_last_7}/7 · 直近28日 ${usage.nights_last_28}/28</p>` +
+        weekBlock(usage.weeks[usage.weeks.length - 1], "今週") + weekBlock(usage.weeks[usage.weeks.length - 2], "先週") +
+        `<table class="ev" style="margin-top:8px;border-collapse:collapse;width:100%"><tr><th align="left">日</th><th align="left">取得</th><th align="left">食事</th><th align="left">空白</th><th align="left">回答</th></tr>${dayRows}</table>`
+      : "<p class='ev'>まだデータがありません</p>";
     app.innerHTML = `
+      <div class="card">
+        <p class="q">使った記録</p>
+        <p class="ev">価値は「手間ゼロで、自分の1日に即した助言」。だから見るのは、どこまで自動で取れたか(取得・食事・空白)、推定が当たったか(一発・訂正・手入力)、続いているか(連続)。</p>
+        ${usageHtml}
+      </div>
       <div class="card">
         <p class="q">接続</p>
         <div class="row"><input id="tokenInput" type="password" placeholder="APP_TOKEN" value="${esc(state.token)}"><button id="saveToken">保存</button></div>

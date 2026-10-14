@@ -7,7 +7,7 @@ new collector (a new ring, a watch, a different payment app) never changes the i
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import JSON, Column, DateTime, UniqueConstraint
@@ -29,7 +29,7 @@ class RawEvent(SQLModel, table=True):
     payload: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
     device_id: str | None = None
     dedupe_key: str
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), sa_column=Column(DateTime(timezone=True)))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC), sa_column=Column(DateTime(timezone=True)))
 
 
 class DaySummary(SQLModel, table=True):
@@ -64,7 +64,7 @@ class Card(SQLModel, table=True):
     answer: str | None = None
     note: str | None = None  # free text correction (optional)
     answered_at: datetime | None = Field(default=None, sa_column=Column(DateTime(timezone=True), nullable=True))
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), sa_column=Column(DateTime(timezone=True)))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC), sa_column=Column(DateTime(timezone=True)))
 
 
 class Insight(SQLModel, table=True):
@@ -77,7 +77,7 @@ class Insight(SQLModel, table=True):
     evidence: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
     confidence: float = 0.5
     n_samples: int = 0
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), sa_column=Column(DateTime(timezone=True)))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC), sa_column=Column(DateTime(timezone=True)))
 
 
 class PoiTile(SQLModel, table=True):

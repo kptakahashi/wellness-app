@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import re
-from datetime import date, datetime, timedelta, timezone
+from datetime import UTC, date, datetime, timedelta
 from typing import Any
 
 from sqlmodel import Session, select
@@ -23,7 +23,7 @@ log = logging.getLogger(__name__)
 
 # Questions the user never wants again: the identity of a place, and whether they slept.
 PLACE_IDENTITY_RE = re.compile(r"(自宅|お家|ご自宅|家|職場|会社|オフィス)\s*(です|でした|だった|にい|に居|ですよね|でしょう)")
-SLEEP_RE = re.compile(r"(寝て|眠って|就寝|睡眠|寝た|眠った|起きた|起床)")
+SLEEP_RE = re.compile(r"(寝て|眠って|就寝|睡眠|寝た|眠った|眠れ|眠り|寝つ|起きた|起床)")
 
 
 def _drop_unwanted(cards: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -90,7 +90,7 @@ def infer_day(session: Session, day: date, force: bool = False) -> DaySummary:
     summary.timeline = data.get("timeline", [])
     summary.summary_text = data.get("summary", "")
     summary.inference_backend = backend_used
-    summary.generated_at = datetime.now(timezone.utc)
+    summary.generated_at = datetime.now(UTC)
     if summary.status != "reviewed":
         summary.status = "inferred"
     session.add(summary)
@@ -147,7 +147,22 @@ def _daily_rows(session: Session, start: date, end: date) -> list[dict[str, Any]
         nxt = by_date.get((cur + timedelta(days=1)).isoformat())
         row: dict[str, Any] = {"date": key}
         if d:
-            row.update({k: d.metrics.get(k) for k in ("sleep_hours", "hrv_avg", "resting_hr", "steps", "exercise_minutes", "meeting_count", "meeting_minutes", "screen_minutes", "late_night_screen_minutes")})
+            row.update(
+                {
+                    k: d.metrics.get(k)
+                    for k in (
+                        "sleep_hours",
+                        "hrv_avg",
+                        "resting_hr",
+                        "steps",
+                        "exercise_minutes",
+                        "meeting_count",
+                        "meeting_minutes",
+                        "screen_minutes",
+                        "late_night_screen_minutes",
+                    )
+                }
+            )
             row["condition"] = d.overall_condition
         if nxt:
             row["next_sleep_hours"] = nxt.metrics.get("sleep_hours")
@@ -177,7 +192,8 @@ def generate_insights(session: Session, end: date | None = None, days: int = 28)
                 start=start.isoformat(),
                 end=end.isoformat(),
                 rows="\n".join(json.dumps(r, ensure_ascii=False) for r in rows),
-                answers="\n".join(f"- {a['date']} [{a['kind']}] {a['q']} → {a['a']}" + (f" ({a['note']})" if a.get('note') else "") for a in answers) or "(なし)",
+                answers="\n".join(f"- {a['date']} [{a['kind']}] {a['q']} → {a['a']}" + (f" ({a['note']})" if a.get("note") else "") for a in answers)
+                or "(なし)",
             ),
             INSIGHT_SCHEMA,
         )

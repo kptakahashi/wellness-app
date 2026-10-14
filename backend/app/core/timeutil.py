@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date, datetime, time, timedelta, timezone
+from datetime import UTC, date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
 from .config import settings
@@ -14,15 +14,15 @@ def now_local() -> datetime:
 
 def to_local(dt: datetime) -> datetime:
     if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=timezone.utc)
+        dt = dt.replace(tzinfo=UTC)
     return dt.astimezone(TZ)
 
 
 def to_utc_naive(dt: datetime) -> datetime:
     """Normalise to timezone-aware UTC (name kept for history; values are aware, not naive)."""
     if dt.tzinfo is None:
-        return dt.replace(tzinfo=timezone.utc)
-    return dt.astimezone(timezone.utc)
+        return dt.replace(tzinfo=UTC)
+    return dt.astimezone(UTC)
 
 
 def parse_ts(value: str | int | float | datetime) -> datetime:
@@ -31,7 +31,7 @@ def parse_ts(value: str | int | float | datetime) -> datetime:
         return to_utc_naive(value)
     if isinstance(value, (int, float)):
         secs = value / 1000 if value > 1e11 else value
-        return datetime.fromtimestamp(secs, tz=timezone.utc)
+        return datetime.fromtimestamp(secs, tz=UTC)
     s = str(value).strip()
     if s.endswith("Z"):
         s = s[:-1] + "+00:00"

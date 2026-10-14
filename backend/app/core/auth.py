@@ -5,7 +5,7 @@ from fastapi import Header, HTTPException, Query, Request, status
 from .config import settings
 
 # In demo mode anyone may browse and answer cards, but nobody may feed data or change settings.
-DEMO_PROTECTED_PREFIXES = ("/api/ingest", "/api/settings", "/api/calendar", "/api/notes")
+DEMO_PROTECTED_PREFIXES = ("/api/ingest", "/api/settings", "/api/calendar", "/api/notes", "/api/data", "/api/jobs/purge")
 
 
 async def require_token(

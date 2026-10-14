@@ -14,7 +14,7 @@ from __future__ import annotations
 import logging
 import time
 import unicodedata
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from math import floor
 from typing import Any
 
@@ -33,54 +33,198 @@ _failed_at: dict[str, float] = {}  # tile key -> monotonic time of last failed f
 
 # amenity values that are never "a place you stayed at"
 NOISE_AMENITY = {
-    "parking", "bench", "vending_machine", "toilets", "bicycle_parking", "post_box", "telephone",
-    "waste_basket", "drinking_water", "shelter", "parking_entrance", "parking_space", "charging_station",
-    "recycling", "fountain", "grave_yard", "bicycle_rental", "car_sharing", "taxi", "loading_dock",
-    "motorcycle_parking", "smoking_area", "water_point", "hunting_stand", "clock", "atm",
+    "parking",
+    "bench",
+    "vending_machine",
+    "toilets",
+    "bicycle_parking",
+    "post_box",
+    "telephone",
+    "waste_basket",
+    "drinking_water",
+    "shelter",
+    "parking_entrance",
+    "parking_space",
+    "charging_station",
+    "recycling",
+    "fountain",
+    "grave_yard",
+    "bicycle_rental",
+    "car_sharing",
+    "taxi",
+    "loading_dock",
+    "motorcycle_parking",
+    "smoking_area",
+    "water_point",
+    "hunting_stand",
+    "clock",
+    "atm",
 }
 
 # tag -> Japanese category. First match wins; unknown values fall back to the tag's generic label.
 CATEGORY_JA: dict[str, dict[str, str]] = {
     "amenity": {
-        "restaurant": "飲食店", "cafe": "カフェ", "fast_food": "ファストフード", "bar": "バー", "pub": "居酒屋・バー",
-        "izakaya": "居酒屋", "food_court": "フードコート", "ice_cream": "アイス", "hospital": "病院", "clinic": "クリニック",
-        "dentist": "歯科", "doctors": "クリニック", "pharmacy": "薬局", "bank": "銀行", "school": "学校", "university": "大学",
-        "college": "学校", "kindergarten": "幼稚園・保育園", "library": "図書館", "cinema": "映画館", "theatre": "劇場",
-        "place_of_worship": "寺社・教会", "community_centre": "公民館", "townhall": "役所", "post_office": "郵便局",
-        "gym": "ジム", "fitness_centre": "ジム", "public_bath": "銭湯・温泉", "nightclub": "クラブ", "karaoke_box": "カラオケ",
-        "coworking_space": "コワーキング", "veterinary": "動物病院", "fuel": "ガソリンスタンド", "car_wash": "洗車",
-        "marketplace": "市場", "social_facility": "福祉施設", "childcare": "保育", "arts_centre": "文化施設",
-        "events_venue": "イベント会場", "conference_centre": "会議場", "police": "交番・警察", "bus_station": "バスターミナル",
+        "restaurant": "飲食店",
+        "cafe": "カフェ",
+        "fast_food": "ファストフード",
+        "bar": "バー",
+        "pub": "居酒屋・バー",
+        "izakaya": "居酒屋",
+        "food_court": "フードコート",
+        "ice_cream": "アイス",
+        "hospital": "病院",
+        "clinic": "クリニック",
+        "dentist": "歯科",
+        "doctors": "クリニック",
+        "pharmacy": "薬局",
+        "bank": "銀行",
+        "school": "学校",
+        "university": "大学",
+        "college": "学校",
+        "kindergarten": "幼稚園・保育園",
+        "library": "図書館",
+        "cinema": "映画館",
+        "theatre": "劇場",
+        "place_of_worship": "寺社・教会",
+        "community_centre": "公民館",
+        "townhall": "役所",
+        "post_office": "郵便局",
+        "gym": "ジム",
+        "fitness_centre": "ジム",
+        "public_bath": "銭湯・温泉",
+        "nightclub": "クラブ",
+        "karaoke_box": "カラオケ",
+        "coworking_space": "コワーキング",
+        "veterinary": "動物病院",
+        "fuel": "ガソリンスタンド",
+        "car_wash": "洗車",
+        "marketplace": "市場",
+        "social_facility": "福祉施設",
+        "childcare": "保育",
+        "arts_centre": "文化施設",
+        "events_venue": "イベント会場",
+        "conference_centre": "会議場",
+        "police": "交番・警察",
+        "bus_station": "バスターミナル",
     },
     "shop": {
-        "convenience": "コンビニ", "supermarket": "スーパー", "mall": "ショッピングモール", "department_store": "百貨店",
-        "chemist": "ドラッグストア", "drugstore": "ドラッグストア", "bakery": "パン屋", "books": "書店", "clothes": "衣料品店",
-        "electronics": "家電量販店", "hairdresser": "美容室", "beauty": "サロン", "variety_store": "100円ショップ・雑貨",
-        "alcohol": "酒屋", "coffee": "コーヒー豆", "sports": "スポーツ用品", "bicycle": "自転車店", "car": "自動車販売",
-        "furniture": "家具店", "hardware": "ホームセンター", "doityourself": "ホームセンター", "pet": "ペットショップ",
-        "optician": "メガネ店", "massage": "マッサージ", "laundry": "コインランドリー", "dry_cleaning": "クリーニング",
-        "greengrocer": "八百屋", "butcher": "精肉店", "seafood": "鮮魚店", "confectionery": "菓子店", "tea": "お茶",
-        "mobile_phone": "携帯ショップ", "second_hand": "リサイクルショップ", "anime": "アニメショップ", "video_games": "ゲーム店",
+        "convenience": "コンビニ",
+        "supermarket": "スーパー",
+        "mall": "ショッピングモール",
+        "department_store": "百貨店",
+        "chemist": "ドラッグストア",
+        "drugstore": "ドラッグストア",
+        "bakery": "パン屋",
+        "books": "書店",
+        "clothes": "衣料品店",
+        "electronics": "家電量販店",
+        "hairdresser": "美容室",
+        "beauty": "サロン",
+        "variety_store": "100円ショップ・雑貨",
+        "alcohol": "酒屋",
+        "coffee": "コーヒー豆",
+        "sports": "スポーツ用品",
+        "bicycle": "自転車店",
+        "car": "自動車販売",
+        "furniture": "家具店",
+        "hardware": "ホームセンター",
+        "doityourself": "ホームセンター",
+        "pet": "ペットショップ",
+        "optician": "メガネ店",
+        "massage": "マッサージ",
+        "laundry": "コインランドリー",
+        "dry_cleaning": "クリーニング",
+        "greengrocer": "八百屋",
+        "butcher": "精肉店",
+        "seafood": "鮮魚店",
+        "confectionery": "菓子店",
+        "tea": "お茶",
+        "mobile_phone": "携帯ショップ",
+        "second_hand": "リサイクルショップ",
+        "anime": "アニメショップ",
+        "video_games": "ゲーム店",
     },
     "leisure": {
-        "fitness_centre": "ジム", "sports_centre": "スポーツ施設", "swimming_pool": "プール", "park": "公園", "garden": "庭園",
-        "stadium": "スタジアム", "pitch": "グラウンド", "playground": "公園(遊び場)", "bowling_alley": "ボウリング",
-        "golf_course": "ゴルフ場", "sauna": "サウナ", "dance": "ダンススタジオ", "amusement_arcade": "ゲームセンター",
-        "water_park": "プール", "ice_rink": "スケート場", "escape_game": "脱出ゲーム", "fitness_station": "トレーニング器具",
+        "fitness_centre": "ジム",
+        "sports_centre": "スポーツ施設",
+        "swimming_pool": "プール",
+        "park": "公園",
+        "garden": "庭園",
+        "stadium": "スタジアム",
+        "pitch": "グラウンド",
+        "playground": "公園(遊び場)",
+        "bowling_alley": "ボウリング",
+        "golf_course": "ゴルフ場",
+        "sauna": "サウナ",
+        "dance": "ダンススタジオ",
+        "amusement_arcade": "ゲームセンター",
+        "water_park": "プール",
+        "ice_rink": "スケート場",
+        "escape_game": "脱出ゲーム",
+        "fitness_station": "トレーニング器具",
     },
-    "tourism": {"hotel": "ホテル", "museum": "博物館・美術館", "attraction": "観光地", "guest_house": "宿", "hostel": "ホステル", "gallery": "ギャラリー", "zoo": "動物園", "aquarium": "水族館", "theme_park": "テーマパーク", "viewpoint": "展望スポット"},
+    "tourism": {
+        "hotel": "ホテル",
+        "museum": "博物館・美術館",
+        "attraction": "観光地",
+        "guest_house": "宿",
+        "hostel": "ホステル",
+        "gallery": "ギャラリー",
+        "zoo": "動物園",
+        "aquarium": "水族館",
+        "theme_park": "テーマパーク",
+        "viewpoint": "展望スポット",
+    },
     "healthcare": {"*": "医療機関"},
     "office": {"*": "オフィス"},
     "railway": {"station": "駅"},
     "public_transport": {"station": "駅"},
 }
-GENERIC_JA = {"amenity": "施設", "shop": "店", "leisure": "レジャー施設", "tourism": "観光施設", "healthcare": "医療機関", "office": "オフィス", "railway": "駅", "public_transport": "駅"}
+GENERIC_JA = {
+    "amenity": "施設",
+    "shop": "店",
+    "leisure": "レジャー施設",
+    "tourism": "観光施設",
+    "healthcare": "医療機関",
+    "office": "オフィス",
+    "railway": "駅",
+    "public_transport": "駅",
+}
 
 # Categories where people actually spend time, ranked above e.g. a bank or a pharmacy next door.
 STAY_CATEGORIES = {
-    "飲食店", "カフェ", "ファストフード", "バー", "居酒屋・バー", "居酒屋", "フードコート", "ジム", "スポーツ施設", "プール",
-    "コンビニ", "スーパー", "ショッピングモール", "百貨店", "病院", "クリニック", "歯科", "駅", "オフィス", "学校", "大学",
-    "映画館", "カラオケ", "銭湯・温泉", "サウナ", "コワーキング", "ホテル", "美容室", "図書館", "公園", "家電量販店", "書店",
+    "飲食店",
+    "カフェ",
+    "ファストフード",
+    "バー",
+    "居酒屋・バー",
+    "居酒屋",
+    "フードコート",
+    "ジム",
+    "スポーツ施設",
+    "プール",
+    "コンビニ",
+    "スーパー",
+    "ショッピングモール",
+    "百貨店",
+    "病院",
+    "クリニック",
+    "歯科",
+    "駅",
+    "オフィス",
+    "学校",
+    "大学",
+    "映画館",
+    "カラオケ",
+    "銭湯・温泉",
+    "サウナ",
+    "コワーキング",
+    "ホテル",
+    "美容室",
+    "図書館",
+    "公園",
+    "家電量販店",
+    "書店",
 }
 
 
@@ -116,8 +260,12 @@ def _overpass_query(bbox: tuple[float, float, float, float]) -> str:
     s, w, n, e = bbox
     box = f"({s:.4f},{w:.4f},{n:.4f},{e:.4f})"
     selectors = [
-        'nwr["name"]["amenity"]', 'nwr["name"]["shop"]', 'nwr["name"]["leisure"]', 'nwr["name"]["tourism"]',
-        'nwr["name"]["healthcare"]', 'nwr["name"]["railway"="station"]',
+        'nwr["name"]["amenity"]',
+        'nwr["name"]["shop"]',
+        'nwr["name"]["leisure"]',
+        'nwr["name"]["tourism"]',
+        'nwr["name"]["healthcare"]',
+        'nwr["name"]["railway"="station"]',
         'nwr["name"]["public_transport"="station"]',
     ]
     body = "".join(f"{sel}{box};" for sel in selectors)
@@ -179,10 +327,10 @@ def ensure_tiles(session: Session, points: list[tuple[float, float]], max_fetch:
         if k not in keys:
             keys.append(k)
     fetched = 0
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     for k in keys:
         row = session.get(PoiTile, k)
-        if row and row.fetched_at and (now - row.fetched_at.replace(tzinfo=row.fetched_at.tzinfo or timezone.utc)) < TILE_TTL:
+        if row and row.fetched_at and (now - row.fetched_at.replace(tzinfo=row.fetched_at.tzinfo or UTC)) < TILE_TTL:
             continue
         if time.monotonic() - _failed_at.get(k, -1e9) < 3600:
             continue
@@ -207,7 +355,6 @@ def ensure_tiles(session: Session, points: list[tuple[float, float]], max_fetch:
 
 def _tiles_around(session: Session, lat: float, lon: float) -> list[dict[str, Any]]:
     """POIs from the tile of (lat, lon) and, near a tile edge, its neighbours (if cached)."""
-    size = settings.poi_tile_deg
     keys = {tile_key(lat + dy, lon + dx) for dy in (-0.003, 0, 0.003) for dx in (-0.003, 0, 0.003)}
     out: list[dict[str, Any]] = []
     for k in keys:

@@ -1,0 +1,29 @@
+# Harness: lint + tests. Run before every commit:  ruff check . && ruff format --check . && pytest -q
+[tool.ruff]
+line-length = 160
+target-version = "py312"
+extend-exclude = [".venv", "data", "demo"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "C90", "SIM", "T20"]
+# Ratchet: start where the code is, tighten as it is split up. Lower max-complexity when rules.infer_day is refactored.
+ignore = ["E501"]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 20
+
+[tool.ruff.lint.flake8-bugbear]
+# FastAPI's dependency injection is written as call-in-default on purpose.
+extend-immutable-calls = ["fastapi.Depends", "fastapi.Header", "fastapi.Query", "fastapi.Body"]
+
+[tool.ruff.lint.per-file-ignores]
+"scripts/*" = ["E402", "T20"]
+"tests/*" = ["T20"]
+# Ratchet (2026-10-14): these functions were already over the complexity limit. Split them, then delete the line.
+"app/inference/rules.py" = ["C901"]
+"app/services/daycontext.py" = ["C901"]
+"scripts/seed_demo.py" = ["C901"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
